@@ -13,7 +13,7 @@ export type TraceEvent = {
     | "tool_error"
     | "final"
     | "error";
-  data: Record<string, unknown>;
+  data: { [k: string]: any };
 };
 
 export type AgentResult = {
@@ -38,11 +38,11 @@ const MAX_ITERATIONS = 6;
 export const runAgent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ prompt: z.string().min(1).max(2000) }).parse(d))
-  .handler(async ({ data, context }): Promise<AgentResult> => {
+  .handler(async ({ data, context }) => {
     const start = Date.now();
     const trace: TraceEvent[] = [];
     const log = (kind: TraceEvent["kind"], d: Record<string, unknown>) =>
-      trace.push({ t: Date.now() - start, kind, data: d });
+      trace.push({ t: Date.now() - start, kind, data: JSON.parse(JSON.stringify(d)) });
     const stats: AgentResult["stats"] = {
       modelTurns: 0,
       toolExecutions: 0,
