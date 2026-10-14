@@ -93,27 +93,12 @@ export const runAgent = createServerFn({ method: "POST" })
       },
     });
 
-    const getMemories = betaZodTool({
-      name: "get_user_memories",
-      description: "Retrieve all safety rules the current user has saved, oldest first.",
-      inputSchema: z.object({}),
-      run: async () => {
-        stats.toolExecutions++;
-        log("tool_run_start", { tool: "get_user_memories", input: {} });
-        const { data: rows, error } = await supabase
-          .from("agent_sdk_test_memories")
-          .select("id, content, created_at")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: true });
-        if (error) {
-          log("tool_error", { tool: "get_user_memories", error: error.message });
-          throw new Error(`Database error: ${error.message}`);
-        }
-        const out = { count: rows.length, memories: rows, note: rows.length ? undefined : "No saved rules yet." };
-        log("tool_result", { tool: "get_user_memories", result: out });
-        return JSON.stringify(out);
-      },
-    });
+    const { createGetMemoriesTool, readUserMemories } = await import("./memory-tools");
+    const getMemories = createGetMemoriesTool(
+      () => readUserMemories(supabase, userId),
+      (kind, details) => log(kind as TraceEvent["kind"], details),
+      () => { stats.toolExecutions++; },
+    );
 
     let finalText = "";
     try {

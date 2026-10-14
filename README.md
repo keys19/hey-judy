@@ -42,3 +42,15 @@ bun run build
 ```
 
 Migration verification on 2026-10-14 compared every copied row, including password hashes, and checked the schema and permissions. An authenticated owner could read the two memories; a different user could read none. The source database was accessed with read-only queries.
+
+## Three-Agent Pipeline Test
+
+The signed-in page now includes Reader → Analyzer → Checker → Validator, independent versioned Agent configurations, actual tool traces and a reviewed final report. Tests 1–3 remain available.
+
+See [the pipeline guide](docs/three-agent-pipeline.md) for the implementation map, local instructions, automated versus live tests, and the proposed resumable hosting strategy. No additional tables or cloud deployment are required.
+
+```sh
+bun run typecheck
+bun run test
+bun run test:live --sdk-only
+```

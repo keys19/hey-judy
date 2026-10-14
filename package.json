@@ -11,6 +11,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "test:live": "node --env-file=.env --env-file-if-exists=.env.local scripts/test-pipeline-live.mjs",
     "test:watch": "vitest"
   },
   "overrides": {
