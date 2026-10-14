@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_configurations: {
+        Row: {
+          agent_name: string
+          created_at: string
+          created_by: string | null
+          id: string
+          model: string
+          skills_manual: string
+          system_prompt: string
+          version: number
+        }
+        Insert: {
+          agent_name: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model?: string
+          skills_manual?: string
+          system_prompt: string
+          version?: number
+        }
+        Update: {
+          agent_name?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model?: string
+          skills_manual?: string
+          system_prompt?: string
+          version?: number
+        }
+        Relationships: []
+      }
       agent_sdk_test_memories: {
         Row: {
           content: string
@@ -35,15 +68,143 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          final_report: Json | null
+          id: string
+          input_text: string
+          status: string
+          updated_at: string
+          user_id: string
+          validation: Json | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          final_report?: Json | null
+          id?: string
+          input_text: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          validation?: Json | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          final_report?: Json | null
+          id?: string
+          input_text?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          validation?: Json | null
+        }
+        Relationships: []
+      }
+      pipeline_stages: {
+        Row: {
+          attempt: number
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          id: string
+          model: string | null
+          output: Json | null
+          run_id: string
+          stage: string
+          status: string
+          tokens_in: number | null
+          tokens_out: number | null
+          tool_calls: number | null
+          trace: Json | null
+          validation: Json | null
+        }
+        Insert: {
+          attempt?: number
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          model?: string | null
+          output?: Json | null
+          run_id: string
+          stage: string
+          status: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tool_calls?: number | null
+          trace?: Json | null
+          validation?: Json | null
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          model?: string | null
+          output?: Json | null
+          run_id?: string
+          stage?: string
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tool_calls?: number | null
+          trace?: Json | null
+          validation?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stages_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -170,6 +331,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin"],
+    },
   },
 } as const
