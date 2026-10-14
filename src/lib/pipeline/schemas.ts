@@ -72,6 +72,15 @@ export const AnalysisOutputSchema = z
     uncertainty: z.array(text).max(30),
     triggered_boundaries: z.array(BoundarySchema).max(100),
     recommendation: text,
+    // Hey Judy: one follow-up question, only when its answer would change the
+    // colour and can_ask_question is true. Otherwise null.
+    question_for_user: z
+      .object({
+        text: text.describe("One short, plain question for the person."),
+        options: z.array(text).max(3).describe("Up to 3 short tap answers."),
+      })
+      .strict()
+      .nullable(),
   })
   .strict();
 export const CheckerOutputSchema = z

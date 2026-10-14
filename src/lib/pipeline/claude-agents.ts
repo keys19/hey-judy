@@ -13,6 +13,7 @@ import type { z } from "zod";
 import {
   redactReaderOutput,
   redactDeep,
+  redactText,
   AGENT_OUTPUT_KEEP,
   type ImageInput,
   type NameRule,
@@ -28,6 +29,10 @@ export type JudyAgentOptions = {
   namesToHide?: NameRule[];
   // Judy's memory of this friendship (null on a check with no thread).
   friendship?: FriendshipContext;
+  // Whether the Analyzer may ask one follow-up question this time.
+  canAskQuestion?: boolean;
+  // Earlier follow-up questions in this check and the person's answers.
+  followUps?: { question: string; answer: string }[];
 };
 
 export const MAX_TOOL_ITERATIONS = 6;
@@ -96,12 +101,25 @@ export function createClaudeAgents(
   }
   return {
     reader: async (input, cfg, ctx) => {
+      const names = options.namesToHide ?? [];
+      // Pasted text: known names are swapped in code BEFORE the Reader sees it,
+      // e.g. "Julie" -> "[support worker]", so the role survives for the rules.
+      // Screenshots can't be edited, so the Reader is told who's who instead.
+      const roles = names.flatMap((n) =>
+        typeof n === "string"
+          ? [{ name: n, write_as: "[name]" }]
+          : [{ name: n.name, write_as: "[" + n.as + "]" }],
+      );
       const raw = await structured(
         ReaderOutputSchema,
         cfg,
         image
-          ? { input_kind: "screenshot", original_input: input }
-          : { input_kind: "text", original_input: input },
+          ? {
+              input_kind: "screenshot",
+              original_input: input,
+              ...(roles.length ? { known_people: roles } : {}),
+            }
+          : { input_kind: "text", original_input: redactText(input, names) },
         ctx,
         true,
       );
@@ -147,6 +165,8 @@ export function createClaudeAgents(
               content: untrustedPayload({
                 reader_output: reader,
                 friendship: options.friendship ?? null,
+                can_ask_question: options.canAskQuestion === true,
+                follow_up_answers: options.followUps ?? [],
                 reviewer_feedback: feedback ?? null,
               }),
             },

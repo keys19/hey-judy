@@ -129,4 +129,26 @@ describe("Analyzer and Checker with friendship memory (mocked HTTP)", () => {
     );
     expect(String(requests[0].messages[0].content)).toContain('"friendship":null');
   });
+  it("Reader never sees known names in pasted text: they arrive as roles", async () => {
+    const { client, requests } = clientWith([json(READER)]);
+    await createClaudeAgents(client, async () => MEMORIES, { friendship, namesToHide }).reader(
+      "Sam: lend me £50? don't tell Julie x",
+      DEFAULT_CONFIGS.reader,
+      stageContext(),
+    );
+    const sent = String(requests[0].messages[0].content);
+    expect(sent).not.toMatch(/Sam|Julie/);
+    expect(sent).toContain("[name]: lend me £50? don't tell [support worker] x");
+  });
+  it("for screenshots the Reader is told who is who", async () => {
+    const { client, requests } = clientWith([json(READER)]);
+    await createClaudeAgents(client, async () => MEMORIES, {
+      friendship,
+      namesToHide,
+      image: { media_type: "image/png", data: "iVBORw0KGgo".repeat(20) },
+    }).reader("(screenshot)", DEFAULT_CONFIGS.reader, stageContext());
+    const text = String(requests[0].messages[0].content[1].text);
+    expect(text).toContain('{"name":"Julie","write_as":"[support worker]"}');
+    expect(text).toContain('{"name":"Sam","write_as":"[name]"}');
+  });
 });

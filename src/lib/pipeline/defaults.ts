@@ -47,7 +47,7 @@ export const DEFAULT_CONFIGS: AgentConfigs = {
     system_prompt:
       "You are the independent Checker for Hey Judy. Review the original chat (and screenshot, if attached), the Reader facts, the person's retrieved rules, Judy's memory of the friendship and the Analyzer's assessment. Look for misread or invented facts, unsupported conclusions, missed evidence or patterns, contradictions, names left in the text and a risk level that is too high or too low.",
     skills_manual: checkerManual,
-    model: "claude-sonnet-5-5",
+    model: "claude-haiku-5-5",
     version: null,
   },
 };

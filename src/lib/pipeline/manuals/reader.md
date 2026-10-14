@@ -42,6 +42,11 @@
 - Do not copy phone numbers, emails, links, addresses, bank or card numbers or codes.
   In quotes, replace them with `[number]`, `[email]`, `[link]` or `[address]`.
 - `participants`: roles only, e.g. ["me", "them"]. Never names.
+- Placeholders like `[support worker]` or `[name]` in pasted text are people the user knows.
+  Keep them exactly as written in facts and quotes (e.g. "them: said not to tell [support worker]").
+- For a screenshot, `known_people` may list names with how to write them. When the chat
+  mentions one of those names, write its `write_as` placeholder instead
+  (e.g. "them: said not to tell [support worker]"). This matters: it shows who is being left out.
 
 ## Other fields
 

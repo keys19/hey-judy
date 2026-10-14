@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PipelineTest } from "@/components/pipeline/PipelineTest";
+import { JudyTurnTest } from "@/components/pipeline/JudyTurnTest";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -53,7 +54,7 @@ function Index() {
           </div>
         )}
       </header>
-      {session ? <><Dashboard userId={session.user.id} /><PipelineTest key={session.user.id} /></> : <Login />}
+      {session ? <><Dashboard userId={session.user.id} /><JudyTurnTest key={"judy-" + session.user.id} /><PipelineTest key={session.user.id} /></> : <Login />}
     </div>
   );
 }

@@ -54,6 +54,7 @@ export const ANALYSIS: AnalysisOutput = {
     },
   ],
   recommendation: "Pause and verify using a trusted contact channel.",
+  question_for_user: null,
 };
 export const APPROVED: CheckerOutput = {
   decision: "approved",
