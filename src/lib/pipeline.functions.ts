@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { ConfigInputSchema } from "./pipeline/defaults";
 import { loadConfigs, requireConfigAdmin, createPipelineStore } from "./pipeline/repository";
+import { IMAGE_MEDIA_TYPES, MAX_IMAGE_BASE64, SCREENSHOT_PLACEHOLDER } from "./pipeline/judy";
 
 export const isAgentAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -48,8 +49,15 @@ export const startPipelineFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z
-      .object({ message: z.string().trim().min(1).max(4000) })
+      .object({
+        message: z.string().trim().max(4000),
+        // Hey Judy: true when a screenshot will be sent with runPipelineFn.
+        screenshot: z.boolean().optional(),
+      })
       .strict()
+      .refine((d) => d.message.length > 0 || d.screenshot === true, {
+        message: "Add a message or a screenshot.",
+      })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
@@ -58,7 +66,8 @@ export const startPipelineFn = createServerFn({ method: "POST" })
       .from("pipeline_runs")
       .insert({
         user_id: context.userId,
-        input_text: data.message,
+        // The screenshot itself is never stored, only this placeholder.
+        input_text: data.message || SCREENSHOT_PLACEHOLDER,
         status: "running",
         validation: { execution: "pending" },
       })
@@ -70,7 +79,27 @@ export const startPipelineFn = createServerFn({ method: "POST" })
   });
 export const runPipelineFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ runId: z.string().uuid() }).strict().parse(data))
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        runId: z.string().uuid(),
+        // Hey Judy: optional screenshot, base64 without the "data:" prefix.
+        // Sent straight to Claude; never written to the database.
+        image: z
+          .object({
+            media_type: z.enum(IMAGE_MEDIA_TYPES),
+            data: z
+              .string()
+              .min(100)
+              .max(MAX_IMAGE_BASE64)
+              .regex(/^[A-Za-z0-9+/]+={0,2}$/, "Screenshot must be plain base64."),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .parse(data),
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: pending, error: readError } = await supabase
@@ -85,6 +114,8 @@ export const runPipelineFn = createServerFn({ method: "POST" })
       throw new Error("Pending run not found or not owned by the authenticated user.");
     const snapshot = pending.validation as unknown as { execution?: string };
     if (snapshot?.execution !== "pending") throw new Error("This run has already started.");
+    if (pending.input_text === SCREENSHOT_PLACEHOLDER && !data.image)
+      throw new Error("The screenshot is missing. Please share it again.");
     const { data: claimed, error: claimError } = await supabase
       .from("pipeline_runs")
       .update({ validation: { execution: "active" } })
@@ -98,7 +129,7 @@ export const runPipelineFn = createServerFn({ method: "POST" })
     if (claimError || !claimed) throw new Error("This run has already been claimed.");
     const { runPipeline } = await import("./pipeline/runner");
     const { createLiveAgents } = await import("./pipeline/claude-agents");
-    const { readUserMemories } = await import("./memory-tools");
+    const { readUserRules } = await import("./memory-tools");
     const store = createPipelineStore(supabase, userId, data.runId);
     let result: import("./pipeline/schemas").PipelineRunResult;
     try {
@@ -108,7 +139,12 @@ export const runPipelineFn = createServerFn({ method: "POST" })
       result = await runPipeline(pending.input_text, configs, {
         runId: data.runId,
         store,
-        agents: createLiveAgents((signal) => readUserMemories(supabase, userId, signal)),
+        fromScreenshot: !!data.image,
+        // Hey Judy: the Analyzer checks against the person's own rules (public.rules).
+        agents: createLiveAgents(
+          (signal) => readUserRules(supabase, userId, signal),
+          data.image ? { image: data.image } : {},
+        ),
       });
     } catch (error) {
       result = {

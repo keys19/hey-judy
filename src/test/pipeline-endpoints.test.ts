@@ -89,6 +89,63 @@ describe("authenticated execution endpoint with mocked services", () => {
     ).rejects.toThrow(/already been claimed/);
     expect(mocks.createLiveAgents).not.toHaveBeenCalled();
   });
+  it("refuses a screenshot run if the screenshot did not arrive", async () => {
+    const { SCREENSHOT_PLACEHOLDER } = await import("@/lib/pipeline/judy");
+    const { client } = database(
+      { input_text: SCREENSHOT_PLACEHOLDER, validation: { execution: "pending" } },
+      { id: RUN_ID },
+    );
+    const invoke = runPipelineFn as unknown as (ctx: unknown) => Promise<string>;
+    await expect(
+      invoke({ data: { runId: RUN_ID }, context: { userId: "verified-user", supabase: client } }),
+    ).rejects.toThrow(/screenshot is missing/);
+    expect(mocks.createLiveAgents).not.toHaveBeenCalled();
+  });
+  it("passes a screenshot to the agents and marks the run as from a screenshot", async () => {
+    const { SCREENSHOT_PLACEHOLDER } = await import("@/lib/pipeline/judy");
+    const agents = fakeAgents();
+    mocks.createLiveAgents.mockReturnValue(agents);
+    const { client } = database(
+      { input_text: SCREENSHOT_PLACEHOLDER, validation: { execution: "pending" } },
+      { id: RUN_ID },
+    );
+    const image = { media_type: "image/jpeg", data: "A".repeat(200) };
+    const invoke = runPipelineFn as unknown as (ctx: unknown) => Promise<string>;
+    const result = JSON.parse(
+      await invoke({
+        data: { runId: RUN_ID, image },
+        context: { userId: "verified-user", supabase: client },
+      }),
+    );
+    // Fixture quotes are not in the placeholder text, so this only passes
+    // because screenshot quotes are verified by the Checker, not by text match.
+    expect(result.status).toBe("completed");
+    expect(mocks.createLiveAgents).toHaveBeenCalledWith(expect.any(Function), { image });
+  });
+  it("rejects screenshots that are not plain base64 images", async () => {
+    const invoke = runPipelineFn as unknown as (ctx: unknown) => Promise<string>;
+    const { client } = database(null, null);
+    await expect(
+      Promise.resolve().then(() =>
+        invoke({
+          data: { runId: RUN_ID, image: { media_type: "image/svg+xml", data: "A".repeat(200) } },
+          context: { userId: "verified-user", supabase: client },
+        }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      Promise.resolve().then(() =>
+        invoke({
+          data: {
+            runId: RUN_ID,
+            image: { media_type: "image/png", data: "data:image/png;base64," + "A".repeat(200) },
+          },
+          context: { userId: "verified-user", supabase: client },
+        }),
+      ),
+    ).rejects.toThrow(/base64/);
+    expect(mocks.createLiveAgents).not.toHaveBeenCalled();
+  });
   it("does not execute a missing or foreign user's run", async () => {
     const { client } = database(null, null);
     const invoke = runPipelineFn as unknown as (ctx: unknown) => Promise<string>;

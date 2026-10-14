@@ -24,7 +24,34 @@ import {
   getPipelineRun,
   getPipelineRuns,
 } from "@/lib/pipeline.functions";
+import type { ImageInput } from "@/lib/pipeline/judy";
 
+// Shrinks a screenshot to at most 1600px on its longest side and re-encodes it
+// as JPEG, so uploads are small and fast. Returns base64 without the prefix.
+async function shrinkScreenshot(file: File): Promise<ImageInput> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("not an image"));
+      el.src = url;
+    });
+    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas unavailable");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    return { media_type: "image/jpeg", data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 type RunItem = {
   id: string;
   status: string;
@@ -63,6 +90,9 @@ export function PipelineTest() {
   const [notice, setNotice] = useState(""),
     [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  // Hey Judy: optional screenshot, shrunk in the browser, never stored.
+  const [image, setImage] = useState<ImageInput | null>(null);
+  const [imageName, setImageName] = useState("");
   const [busy, setBusy] = useState(false),
     [runId, setRunId] = useState<string | null>(null);
   const [result, setResult] = useState<PipelineRunResult | null>(null),
@@ -149,9 +179,15 @@ export function PipelineTest() {
     setNotice("");
     setRunId(null);
     try {
-      const { runId: id } = await start({ data: { message } });
+      const { runId: id } = await start({
+        data: image ? { message, screenshot: true } : { message },
+      });
       setRunId(id);
-      setResult(JSON.parse(await execute({ data: { runId: id } })) as PipelineRunResult);
+      setResult(
+        JSON.parse(
+          await execute({ data: image ? { runId: id, image } : { runId: id } }),
+        ) as PipelineRunResult,
+      );
     } catch (e) {
       setError(
         "Pipeline request failed: " + String(e) + ". Saved stages remain available in run history.",
@@ -213,9 +249,46 @@ export function PipelineTest() {
           rows={5}
           placeholder="Paste the message you want the agents to examine."
         />
+        <label className="block text-sm" htmlFor="pipeline-screenshot">
+          Or add a screenshot (optional)
+        </label>
+        <input
+          id="pipeline-screenshot"
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) {
+              setImage(null);
+              setImageName("");
+              return;
+            }
+            shrinkScreenshot(file)
+              .then((img) => {
+                setImage(img);
+                setImageName(file.name);
+              })
+              .catch((err) => setError("Could not read that image: " + String(err)));
+          }}
+        />
+        {image && (
+          <p className="text-xs text-muted-foreground">
+            Screenshot ready: {imageName}{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                setImage(null);
+                setImageName("");
+              }}
+            >
+              remove
+            </button>
+          </p>
+        )}
         <Button
           onClick={() => void run()}
-          disabled={busy || saving || !configReady || !message.trim()}
+          disabled={busy || saving || !configReady || (!message.trim() && !image)}
         >
           {busy ? "Pipeline running…" : "Run entire pipeline"}
         </Button>

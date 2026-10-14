@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SIGNS, SPEAKERS } from "./judy";
 
 const text = z.string().trim().min(1).max(4000);
 const factId = z.string().regex(/^f[1-9][0-9]*$/);
@@ -23,8 +24,14 @@ export const ReaderOutputSchema = z
               "other",
             ]),
             quote: text.describe(
-              "An exact, contiguous quote from the original input supporting this fact.",
+              "An exact, contiguous quote from the input supporting this fact, with any person's name replaced by [name].",
             ),
+            speaker: z
+              .enum(SPEAKERS)
+              .describe("Who said it: 'them' (the other person), 'me' (the user) or 'unknown'."),
+            sign: z
+              .enum(SIGNS)
+              .describe("The single best-matching warning sign for this fact, or 'none'."),
           })
           .strict(),
       )
@@ -37,6 +44,11 @@ export const ReaderOutputSchema = z
       )
       .max(30),
     unresolved: z.array(text).max(30),
+    readable: z
+      .boolean()
+      .describe(
+        "false if the screenshot or text is too unclear to read reliably; then facts may be empty.",
+      ),
   })
   .strict();
 export const AnalysisEvidenceSchema = z

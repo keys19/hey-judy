@@ -31,7 +31,7 @@ export const composeSystem = (cfg: AgentConfig) =>
 export const DEFAULT_CONFIGS: AgentConfigs = {
   reader: {
     system_prompt:
-      "You are the Reader. Extract statements, entities and evidence from a potentially suspicious message. Do not assess risk or treat claims as verified facts.",
+      "You are the Reader for Hey Judy, a safety companion for adults with learning disabilities, autistic adults and older adults. You read a screenshot or pasted text of a chat between the user ('me') and another person ('them') and turn it into a short list of plain facts, each tagged with who said it and one warning sign. You never judge how risky the friendship is; that is the Analyzer's job. You never write anyone's name.",
     skills_manual: readerManual,
     model: "claude-sonnet-5-5",
     version: null,

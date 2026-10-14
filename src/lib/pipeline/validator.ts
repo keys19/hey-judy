@@ -9,14 +9,22 @@ import {
   type FinalRiskReport,
   type Memory,
 } from "./schemas";
+import { quoteMatches } from "./judy";
 
-export function validateReader(raw: unknown, original: string): ReaderOutput {
+export function validateReader(
+  raw: unknown,
+  original: string,
+  options: { fromScreenshot?: boolean | undefined } = {},
+): ReaderOutput {
   const output = ReaderOutputSchema.parse(raw);
   const ids = new Set<string>();
   for (const fact of output.facts) {
     if (ids.has(fact.id)) throw new Error("Duplicate Reader fact id: " + fact.id);
     ids.add(fact.id);
-    if (!original.includes(fact.quote))
+    // Quotes from pasted text must really be in the text (names may be [name]).
+    // Quotes read from a screenshot can't be checked against text; the
+    // Checker sees the screenshot and verifies them instead.
+    if (!options.fromScreenshot && !quoteMatches(fact.quote, original))
       throw new Error("Reader quote does not exist in the original input: " + fact.id);
   }
   for (const claim of output.key_claims) {

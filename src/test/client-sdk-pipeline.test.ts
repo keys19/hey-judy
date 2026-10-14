@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClaudeAgents, MAX_TOOL_ITERATIONS } from "@/lib/pipeline/claude-agents";
 import { DEFAULT_CONFIGS } from "@/lib/pipeline/defaults";
-import { readUserMemories, createGetMemoriesTool } from "@/lib/memory-tools";
+import { readUserMemories, readUserRules, createGetMemoriesTool } from "@/lib/memory-tools";
 import { requireConfigAdmin } from "@/lib/pipeline/repository";
 import { INPUT, MEMORIES, READER, ANALYSIS, APPROVED, stageContext } from "./pipeline-fixtures";
 import type { MemoryClient } from "@/lib/memory-tools";
@@ -160,6 +160,24 @@ describe("Supabase data access boundaries (mocked database transport)", () => {
     const db = { from: vi.fn(() => query) } as unknown as MemoryClient;
     expect(await readUserMemories(db, "authenticated-user")).toEqual(MEMORIES);
     expect(query.eq).toHaveBeenCalledWith("user_id", "authenticated-user");
+  });
+  it("reads only the verified user's active rules from public.rules", async () => {
+    const rows = MEMORIES.map((m) => ({ id: m.id, text: m.content, created_at: m.created_at }));
+    const query: any = {
+      select: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      order: vi.fn(() => query),
+      limit: vi.fn(() => query),
+      abortSignal: vi.fn(async () => ({ data: rows, error: null })),
+    };
+    const db = { from: vi.fn(() => query) } as unknown as MemoryClient;
+    expect(await readUserRules(db, "authenticated-user")).toEqual(
+      MEMORIES.map((m) => ({ id: m.id, content: m.content, created_at: m.created_at })),
+    );
+    expect(db.from).toHaveBeenCalledWith("rules");
+    expect(query.select).toHaveBeenCalledWith("id, text, created_at");
+    expect(query.eq).toHaveBeenCalledWith("user_id", "authenticated-user");
+    expect(query.eq).toHaveBeenCalledWith("active", true);
   });
   it("requires backend admin authorization", async () => {
     const query: any = {

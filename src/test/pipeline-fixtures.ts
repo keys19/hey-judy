@@ -17,6 +17,8 @@ export const READER: ReaderOutput = {
       type: "request",
       text: "The sender requests an immediate transfer.",
       quote: "Send £500 to this new account immediately.",
+      speaker: "them",
+      sign: "money_request",
     },
   ],
   key_claims: [
@@ -28,6 +30,7 @@ export const READER: ReaderOutput = {
     },
   ],
   unresolved: ["The sender's identity is not verified."],
+  readable: true,
 };
 export const ANALYSIS: AnalysisOutput = {
   risk_level: "high",

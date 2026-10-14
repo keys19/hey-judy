@@ -10,6 +10,11 @@ import { composeSystem, type AgentConfig } from "./defaults";
 import { createGetMemoriesTool } from "../memory-tools";
 import type { AgentDrivers, StageContext } from "./contracts";
 import type { z } from "zod";
+import { redactReaderOutput, type ImageInput } from "./judy";
+
+// Hey Judy per-run options. The screenshot is sent to the Reader and the
+// Checker only, and is never logged or stored.
+export type JudyAgentOptions = { image?: ImageInput; namesToHide?: string[] };
 
 export const MAX_TOOL_ITERATIONS = 6;
 export const MODEL_TIMEOUT_MS = 45_000;
@@ -27,24 +32,38 @@ function responseText(message: { content: { type: string; text?: string }[] }) {
 export function createClaudeAgents(
   client: Anthropic,
   loadMemories: (signal: AbortSignal) => Promise<Memory[]>,
+  options: JudyAgentOptions = {},
 ): AgentDrivers {
+  const image = options.image;
   async function structured(
     schema: z.ZodType,
     cfg: AgentConfig,
     data: Record<string, unknown>,
     ctx: StageContext,
+    withImage = false,
   ) {
     ctx.log("model_request", {
       model: cfg.model,
       mode: "messages.create",
       structured_output: true,
+      screenshot_attached: withImage && !!image,
     });
+    const content =
+      withImage && image
+        ? [
+            {
+              type: "image" as const,
+              source: { type: "base64" as const, media_type: image.media_type, data: image.data },
+            },
+            { type: "text" as const, text: untrustedPayload(data) },
+          ]
+        : untrustedPayload(data);
     const response = await client.messages.create(
       {
         model: cfg.model,
         max_tokens: MAX_TOKENS,
         system: composeSystem(cfg),
-        messages: [{ role: "user", content: untrustedPayload(data) }],
+        messages: [{ role: "user", content }],
         output_config: { format: zodOutputFormat(schema) },
       },
       { signal: ctx.signal },
@@ -62,8 +81,20 @@ export function createClaudeAgents(
     return JSON.parse(responseText(response));
   }
   return {
-    reader: (input, cfg, ctx) =>
-      structured(ReaderOutputSchema, cfg, { original_input: input }, ctx),
+    reader: async (input, cfg, ctx) => {
+      const raw = await structured(
+        ReaderOutputSchema,
+        cfg,
+        image
+          ? { input_kind: "screenshot", original_input: input }
+          : { input_kind: "text", original_input: input },
+        ctx,
+        true,
+      );
+      // Contact details (and known names) are removed in code, so they never
+      // reach the Analyzer, the trace or the database.
+      return redactReaderOutput(raw, options.namesToHide);
+    },
     analyzer: async (input, reader, cfg, ctx, feedback) => {
       let memories: Memory[] = [];
       let retrieved = false;
@@ -162,16 +193,22 @@ export function createClaudeAgents(
           reader_output: reader,
           analysis_output: analysis,
           retrieved_memories: memories,
+          input_kind: image ? "screenshot" : "text",
         },
         ctx,
+        true, // the Checker independently re-reads the screenshot
       ),
   };
 }
-export function createLiveAgents(loadMemories: (signal: AbortSignal) => Promise<Memory[]>) {
+export function createLiveAgents(
+  loadMemories: (signal: AbortSignal) => Promise<Memory[]>,
+  options: JudyAgentOptions = {},
+) {
   const apiKey = process.env["ANTHROPIC_API_KEY"];
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured on the server.");
   return createClaudeAgents(
     new Anthropic({ apiKey, timeout: MODEL_TIMEOUT_MS, maxRetries: 0 }),
     loadMemories,
+    options,
   );
 }

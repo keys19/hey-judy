@@ -25,6 +25,9 @@ export type PipelineOptions = {
   runId?: string | null;
   timeoutMs?: number;
   stageTimeoutMs?: number;
+  // Hey Judy: true when the person shared a screenshot (quotes are then
+  // verified by the Checker against the image, not against text).
+  fromScreenshot?: boolean;
 };
 function errorText(error: unknown) {
   let message = error instanceof Error ? error.message : String(error);
@@ -135,10 +138,12 @@ export async function runPipeline(
       1,
       (ctx) => options.agents.reader(input, configs.reader, ctx),
       (value) => {
-        validateReader(value, input);
+        validateReader(value, input, { fromScreenshot: options.fromScreenshot === true });
       },
     );
-    const reader = validateReader(readerRaw, input);
+    const reader = validateReader(readerRaw, input, {
+      fromScreenshot: options.fromScreenshot === true,
+    });
     let analysis: AnalysisOutput;
     let checker: CheckerOutput;
     let memories: Memory[] = [];

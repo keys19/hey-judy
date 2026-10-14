@@ -24,6 +24,33 @@ export async function readUserMemories(
     throw new Error("Too many saved rules to evaluate safely in one run.");
   return z.array(MemorySchema).parse(data ?? []);
 }
+// Hey Judy: the person's real boundaries, from public.rules (only switched-on
+// rules). Returned in the same {id, content, created_at} shape as memories,
+// so the Analyzer, Checker and Validator work unchanged.
+export async function readUserRules(
+  supabase: MemoryClient,
+  userId: string,
+  signal?: AbortSignal,
+): Promise<Memory[]> {
+  const request = supabase
+    .from("rules")
+    .select("id, text, created_at")
+    .eq("user_id", userId)
+    .eq("active", true)
+    .order("created_at", { ascending: true })
+    .limit(501);
+  const deadline = AbortSignal.timeout(10_000);
+  const { data, error } = await request.abortSignal(
+    signal ? AbortSignal.any([signal, deadline]) : deadline,
+  );
+  if (error) throw new Error("Rule retrieval failed: " + error.message);
+  if ((data?.length ?? 0) > 500)
+    throw new Error("Too many saved rules to evaluate safely in one run.");
+  const rows = (data ?? []) as { id: string; text: string; created_at: string }[];
+  return z
+    .array(MemorySchema)
+    .parse(rows.map((r) => ({ id: r.id, content: r.text, created_at: r.created_at })));
+}
 export function createGetMemoriesTool(
   load: () => Promise<Memory[]>,
   log: (kind: string, data: Record<string, unknown>) => void,
