@@ -19,6 +19,7 @@ dist-ssr
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
+.vercel/
 
 # Editor directories and files
 .vscode/*
@@ -30,3 +31,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.env*
