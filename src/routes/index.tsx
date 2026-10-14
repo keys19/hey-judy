@@ -105,7 +105,7 @@ function Dashboard({ userId }: { userId: string }) {
     setChat((c) => [...c, { role: "user", text }]);
     setPrompt(""); setLoading(true); setExpected(expect); setResult(null);
     try {
-      const r = await run({ data: { prompt: text } });
+      const r = (await run({ data: { prompt: text } })) as AgentResult;
       setResult(r);
       setChat((c) => [...c, r.error ? { role: "error", text: r.error } : { role: "assistant", text: r.finalText || "(no text)" }]);
       if (r.stats.toolExecutions) loadMems();
@@ -114,7 +114,7 @@ function Dashboard({ userId }: { userId: string }) {
     } finally { setLoading(false); }
   };
 
-  const called = result?.trace.filter((e) => e.kind === "tool_call").map((e) => String(e.data.tool)) ?? [];
+  const called = result?.trace.filter((e) => e.kind === "tool_call").map((e) => String(e.data["tool"])) ?? [];
   const missing = expected?.filter((t) => !called.includes(t)) ?? [];
 
   return (
