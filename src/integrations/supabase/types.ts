@@ -77,6 +77,7 @@ export type Database = {
           id: string
           input_text: string
           status: string
+          thread_id: string | null
           updated_at: string
           user_id: string
           validation: Json | null
@@ -89,6 +90,7 @@ export type Database = {
           id?: string
           input_text: string
           status?: string
+          thread_id?: string | null
           updated_at?: string
           user_id: string
           validation?: Json | null
@@ -101,6 +103,7 @@ export type Database = {
           id?: string
           input_text?: string
           status?: string
+          thread_id?: string | null
           updated_at?: string
           user_id?: string
           validation?: Json | null

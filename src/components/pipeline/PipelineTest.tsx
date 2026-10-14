@@ -23,6 +23,7 @@ import {
   runPipelineFn,
   getPipelineRun,
   getPipelineRuns,
+  getThreadsFn,
 } from "@/lib/pipeline.functions";
 import type { ImageInput } from "@/lib/pipeline/judy";
 
@@ -93,6 +94,16 @@ export function PipelineTest() {
   // Hey Judy: optional screenshot, shrunk in the browser, never stored.
   const [image, setImage] = useState<ImageInput | null>(null);
   const [imageName, setImageName] = useState("");
+  // Hey Judy: which friend this check is about (optional on the test page).
+  const listThreads = useServerFn(getThreadsFn);
+  const [threads, setThreads] = useState<{ id: string; nickname: string }[]>([]);
+  const [threadId, setThreadId] = useState("");
+  useEffect(() => {
+    Promise.resolve()
+      .then(() => listThreads())
+      .then((rows) => setThreads(Array.isArray(rows) ? rows : []))
+      .catch(() => setThreads([]));
+  }, [listThreads]);
   const [busy, setBusy] = useState(false),
     [runId, setRunId] = useState<string | null>(null);
   const [result, setResult] = useState<PipelineRunResult | null>(null),
@@ -180,7 +191,11 @@ export function PipelineTest() {
     setRunId(null);
     try {
       const { runId: id } = await start({
-        data: image ? { message, screenshot: true } : { message },
+        data: {
+          message,
+          ...(image ? { screenshot: true } : {}),
+          ...(threadId ? { threadId } : {}),
+        },
       });
       setRunId(id);
       setResult(
@@ -249,6 +264,22 @@ export function PipelineTest() {
           rows={5}
           placeholder="Paste the message you want the agents to examine."
         />
+        <label className="block text-sm" htmlFor="pipeline-thread">
+          About which friend? (uses Judy&apos;s memory of that friendship)
+        </label>
+        <select
+          id="pipeline-thread"
+          className="block rounded border p-2 text-sm"
+          value={threadId}
+          onChange={(e) => setThreadId(e.target.value)}
+        >
+          <option value="">No friend (one-off check)</option>
+          {threads.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.nickname}
+            </option>
+          ))}
+        </select>
         <label className="block text-sm" htmlFor="pipeline-screenshot">
           Or add a screenshot (optional)
         </label>

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   loadConfigs: vi.fn(),
   createPipelineStore: vi.fn(),
   createLiveAgents: vi.fn(),
+  loadFriendship: vi.fn(),
 }));
 vi.mock("@tanstack/react-start", () => ({
   createServerFn: () => {
@@ -29,6 +30,7 @@ vi.mock("@/lib/pipeline/repository", () => ({
   requireConfigAdmin: vi.fn(),
 }));
 vi.mock("@/lib/pipeline/claude-agents", () => ({ createLiveAgents: mocks.createLiveAgents }));
+vi.mock("@/lib/pipeline/friendship", () => ({ loadFriendship: mocks.loadFriendship }));
 import { runPipelineFn } from "@/lib/pipeline.functions";
 const RUN_ID = "22222222-2222-4222-8222-222222222222";
 beforeEach(() => {
@@ -145,6 +147,51 @@ describe("authenticated execution endpoint with mocked services", () => {
       ),
     ).rejects.toThrow(/base64/);
     expect(mocks.createLiveAgents).not.toHaveBeenCalled();
+  });
+  it("loads the friendship memory for a run about a friend and passes it to the agents", async () => {
+    const agents = fakeAgents();
+    mocks.createLiveAgents.mockReturnValue(agents);
+    const memory = {
+      friendship: {
+        intake: { how_met: "online" },
+        sign_tally: {},
+        notes: [],
+        previous_colour: "grey",
+        checks_so_far: 0,
+        people_who_help_me: [],
+      },
+      namesToHide: ["Sam"],
+    };
+    mocks.loadFriendship.mockResolvedValue(memory);
+    const THREAD_ID = "33333333-3333-4333-8333-333333333333";
+    const { client } = database(
+      { input_text: INPUT, validation: { execution: "pending" }, thread_id: THREAD_ID },
+      { id: RUN_ID },
+    );
+    const invoke = runPipelineFn as unknown as (ctx: unknown) => Promise<string>;
+    const result = JSON.parse(
+      await invoke({
+        data: { runId: RUN_ID },
+        context: { userId: "verified-user", supabase: client },
+      }),
+    );
+    expect(result.status).toBe("completed");
+    expect(mocks.loadFriendship).toHaveBeenCalledWith(client, "verified-user", THREAD_ID);
+    expect(mocks.createLiveAgents).toHaveBeenCalledWith(expect.any(Function), memory);
+  });
+  it("does not load any friendship for a one-off check", async () => {
+    mocks.createLiveAgents.mockReturnValue(fakeAgents());
+    const { client } = database(
+      { input_text: INPUT, validation: { execution: "pending" } },
+      { id: RUN_ID },
+    );
+    const invoke = runPipelineFn as unknown as (ctx: unknown) => Promise<string>;
+    await invoke({
+      data: { runId: RUN_ID },
+      context: { userId: "verified-user", supabase: client },
+    });
+    expect(mocks.loadFriendship).not.toHaveBeenCalled();
+    expect(mocks.createLiveAgents).toHaveBeenCalledWith(expect.any(Function), {});
   });
   it("does not execute a missing or foreign user's run", async () => {
     const { client } = database(null, null);

@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { ConfigInputSchema } from "./pipeline/defaults";
 import { loadConfigs, requireConfigAdmin, createPipelineStore } from "./pipeline/repository";
 import { IMAGE_MEDIA_TYPES, MAX_IMAGE_BASE64, SCREENSHOT_PLACEHOLDER } from "./pipeline/judy";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const isAgentAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -53,6 +54,9 @@ export const startPipelineFn = createServerFn({ method: "POST" })
         message: z.string().trim().max(4000),
         // Hey Judy: true when a screenshot will be sent with runPipelineFn.
         screenshot: z.boolean().optional(),
+        // Hey Judy: which friend (thread) this check is about. Row-level
+        // security refuses a thread that isn't the user's own.
+        threadId: z.string().uuid().optional(),
       })
       .strict()
       .refine((d) => d.message.length > 0 || d.screenshot === true, {
@@ -70,6 +74,7 @@ export const startPipelineFn = createServerFn({ method: "POST" })
         input_text: data.message || SCREENSHOT_PLACEHOLDER,
         status: "running",
         validation: { execution: "pending" },
+        ...(data.threadId ? { thread_id: data.threadId } : {}),
       })
       .select("id")
       .abortSignal(AbortSignal.timeout(10_000))
@@ -104,7 +109,7 @@ export const runPipelineFn = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: pending, error: readError } = await supabase
       .from("pipeline_runs")
-      .select("input_text, validation")
+      .select("input_text, validation, thread_id")
       .eq("id", data.runId)
       .eq("user_id", userId)
       .eq("status", "running")
@@ -130,21 +135,26 @@ export const runPipelineFn = createServerFn({ method: "POST" })
     const { runPipeline } = await import("./pipeline/runner");
     const { createLiveAgents } = await import("./pipeline/claude-agents");
     const { readUserRules } = await import("./memory-tools");
+    const { loadFriendship } = await import("./pipeline/friendship");
     const store = createPipelineStore(supabase, userId, data.runId);
     let result: import("./pipeline/schemas").PipelineRunResult;
     try {
       // Run records are user-owned and editable under existing RLS. Never trust
       // prompts or models supplied in those records: reload authorised configs.
       const configs = await loadConfigs(supabase);
+      // Hey Judy: Judy's memory of this friendship, and the names to hide.
+      const memory = pending.thread_id
+        ? await loadFriendship(supabase, userId, pending.thread_id)
+        : null;
       result = await runPipeline(pending.input_text, configs, {
         runId: data.runId,
         store,
         fromScreenshot: !!data.image,
         // Hey Judy: the Analyzer checks against the person's own rules (public.rules).
-        agents: createLiveAgents(
-          (signal) => readUserRules(supabase, userId, signal),
-          data.image ? { image: data.image } : {},
-        ),
+        agents: createLiveAgents((signal) => readUserRules(supabase, userId, signal), {
+          ...(data.image ? { image: data.image } : {}),
+          ...(memory ? memory : {}),
+        }),
       });
     } catch (error) {
       result = {
@@ -192,4 +202,21 @@ export const getPipelineRun = createServerFn({ method: "GET" })
       .abortSignal(AbortSignal.timeout(10_000));
     if (stageError) throw new Error(stageError.message);
     return JSON.stringify({ run, stages });
+  });
+
+// Hey Judy: the signed-in user's friend threads, for the test page picker.
+export const getThreadsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = context.supabase as unknown as SupabaseClient;
+    const { data, error } = await db
+      .from("threads")
+      .select("id, nickname, last_colour")
+      .eq("user_id", context.userId)
+      .eq("kind", "person")
+      .order("last_used_at", { ascending: false })
+      .limit(50)
+      .abortSignal(AbortSignal.timeout(10_000));
+    if (error) throw new Error(error.message);
+    return (data ?? []) as { id: string; nickname: string; last_colour: string }[];
   });

@@ -1,12 +1,14 @@
 # Reader operating manual (Hey Judy)
 
 ## What you receive
+
 - `input_kind` is `screenshot` (an image is attached) or `text` (in `original_input`).
 - For a screenshot, read every visible message. In most chat apps the user's own
   messages are on the right (often coloured) and the other person's are on the left.
   If you cannot tell who sent a message, use speaker `unknown`.
 
 ## Facts
+
 - One fact per meaningful thing that happened, in order. Use IDs f1, f2, … with no gaps.
 - `text`: a short plain sentence starting with who did it, e.g.
   "them: asked to borrow £20", "them: said not to tell the support worker",
@@ -34,6 +36,7 @@
   are usually `none`.
 
 ## Privacy (very important)
+
 - Never write a name anywhere: not in facts, quotes, claims, participants or notes.
   Use "them", "me", or `[name]` inside quotes.
 - Do not copy phone numbers, emails, links, addresses, bank or card numbers or codes.
@@ -41,6 +44,7 @@
 - `participants`: roles only, e.g. ["me", "them"]. Never names.
 
 ## Other fields
+
 - `channel`: the app if obvious (e.g. "WhatsApp", "Instagram"), otherwise "unknown".
 - `key_claims`: important things "them" claims about themselves or the situation
   (e.g. "them: says rent is due tomorrow"), each citing its fact IDs; `attributed_to`

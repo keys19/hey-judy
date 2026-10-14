@@ -11,6 +11,7 @@ const calls = vi.hoisted(() => ({
   runPipelineFn: vi.fn(),
   getPipelineRun: vi.fn(),
   getPipelineRuns: vi.fn(),
+  getThreadsFn: vi.fn(),
 }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 vi.mock("@/lib/pipeline.functions", () => calls);
@@ -20,6 +21,7 @@ beforeEach(() => {
   calls.getAgentConfigs.mockResolvedValue(structuredClone(DEFAULT_CONFIGS));
   calls.isAgentAdmin.mockResolvedValue({ isAdmin: true });
   calls.getPipelineRuns.mockResolvedValue([]);
+  calls.getThreadsFn.mockResolvedValue([]);
   calls.saveAgentConfig.mockResolvedValue({ ok: true, version: 1 });
   calls.startPipelineFn.mockResolvedValue({ runId: "22222222-2222-4222-8222-222222222222" });
   calls.getPipelineRun.mockResolvedValue(

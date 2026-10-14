@@ -42,9 +42,26 @@ export const MAX_IMAGE_BASE64 = 6_000_000;
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// Deterministic redaction. Runs in code on everything the Reader returns,
-// so contact details never reach the database even if the model misses them.
-export function redactText(input: string, namesToHide: string[] = []): string {
+// A name to hide: a plain string becomes [name]; {name, as} becomes [as],
+// e.g. {name: "Julie", as: "support worker"} -> [support worker].
+export type NameRule = string | { name: string; as: string };
+
+// Turns a relationship like "Support Worker!" into a safe placeholder word.
+export function roleLabel(relationship: string | null | undefined): string {
+  const cleaned = (relationship ?? "")
+    .toLowerCase()
+    .replace(/[^a-z ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 20)
+    .trim();
+  return cleaned || "trusted person";
+}
+
+// Deterministic redaction. Runs in code on everything the agents return,
+// so contact details and known names never reach the database even if the
+// model misses them.
+export function redactText(input: string, namesToHide: NameRule[] = []): string {
   let s = input;
   s = s.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]");
   s = s.replace(
@@ -59,27 +76,111 @@ export function redactText(input: string, namesToHide: string[] = []): string {
     m.replace(/\D/g, "").length >= 9 ? "[number]" : m,
   );
   s = s.replace(/(?<![£$€\d.,])\b\d{6,}\b/g, "[number]"); // one-time codes, PINs-as-codes
-  for (const name of namesToHide) {
-    const n = name.trim();
-    if (n.length >= 2) s = s.replace(new RegExp("\\b" + escapeRegExp(n) + "\\b", "gi"), "[name]");
-  }
+  // Longest names first, so "Sam Smith" is replaced before "Sam".
+  const rules = namesToHide
+    .map((r) => (typeof r === "string" ? { name: r, as: "name" } : r))
+    .map((r) => ({ name: r.name.trim(), as: r.as }))
+    .filter((r) => r.name.length >= 2)
+    .sort((a, b) => b.name.length - a.name.length);
+  for (const r of rules)
+    s = s.replace(new RegExp("\\b" + escapeRegExp(r.name) + "\\b", "gi"), "[" + r.as + "]");
   return s;
 }
 
-// Fields that are identifiers or fixed labels, never free text.
-const NON_TEXT_KEYS = new Set(["id", "type", "sign", "speaker", "fact_ids", "readable"]);
-
-// Applies redactText to every free-text string in a Reader result.
-export function redactReaderOutput<T>(value: T, namesToHide: string[] = []): T {
+// Applies redactText to every free-text string inside a value, skipping
+// identifier/label fields listed in keepKeys.
+export function redactDeep<T>(value: T, namesToHide: NameRule[], keepKeys: Set<string>): T {
   const walk = (v: unknown, key?: string): unknown => {
-    if (typeof v === "string")
-      return key && NON_TEXT_KEYS.has(key) ? v : redactText(v, namesToHide);
-    if (Array.isArray(v)) return key && NON_TEXT_KEYS.has(key) ? v : v.map((x) => walk(x));
+    if (key && keepKeys.has(key)) return v;
+    if (typeof v === "string") return redactText(v, namesToHide);
+    if (Array.isArray(v)) return v.map((x) => walk(x));
     if (v && typeof v === "object")
       return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, k)]));
     return v;
   };
   return walk(value) as T;
+}
+
+// Fields that are identifiers or fixed labels, never free text.
+const READER_KEEP = new Set(["id", "type", "sign", "speaker", "fact_ids", "readable"]);
+// The Analyzer's/Checker's IDs, scores, enums and the exact rule text (which
+// the Validator compares to the saved rule) are never rewritten.
+export const AGENT_OUTPUT_KEEP = new Set([
+  "fact_id",
+  "fact_ids",
+  "memory_id",
+  "rule",
+  "risk_level",
+  "risk_score",
+  "is_risk_indicator",
+  "decision",
+  "inappropriate_risk_level",
+]);
+
+// Applies redactText to every free-text string in a Reader result.
+export function redactReaderOutput<T>(value: T, namesToHide: NameRule[] = []): T {
+  return redactDeep(value, namesToHide, READER_KEEP);
+}
+
+// What the Analyzer and Checker know about this friendship (Judy's memory).
+// Never contains the friend's nickname or anyone's name.
+export type FriendshipContext = {
+  intake: Record<string, string>;
+  sign_tally: Record<string, number>;
+  notes: { date: string; note: string }[];
+  previous_colour: string;
+  checks_so_far: number;
+  people_who_help_me: string[];
+};
+
+type ThreadRow = {
+  nickname: string;
+  answers: unknown;
+  tally: unknown;
+  memory: unknown;
+  last_colour: string;
+};
+type SupporterRow = { first_name: string; relationship: string | null };
+
+// Builds the friendship context plus the list of names to hide everywhere.
+export function buildFriendship(
+  thread: ThreadRow,
+  supporters: SupporterRow[],
+  checksSoFar: number,
+  myFirstName?: string | null,
+): { friendship: FriendshipContext; namesToHide: NameRule[] } {
+  const namesToHide: NameRule[] = [thread.nickname];
+  for (const s of supporters)
+    namesToHide.push({ name: s.first_name, as: roleLabel(s.relationship) });
+  if (myFirstName) namesToHide.push({ name: myFirstName, as: "me" });
+  const asRecord = (v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+  const intake: Record<string, string> = {};
+  for (const [k, v] of Object.entries(asRecord(thread.answers)))
+    if (typeof v === "string" && v.trim()) intake[k] = redactText(v, namesToHide).slice(0, 500);
+  const sign_tally: Record<string, number> = {};
+  for (const [k, v] of Object.entries(asRecord(thread.tally)))
+    if (typeof v === "number" && v > 0) sign_tally[k] = v;
+  const notes = (Array.isArray(thread.memory) ? thread.memory : [])
+    .map((n) => asRecord(n))
+    .filter((n) => typeof n["note"] === "string")
+    .slice(-20)
+    .map((n) => ({
+      date: typeof n["date"] === "string" ? n["date"] : "",
+      note: redactText(String(n["note"]), namesToHide).slice(0, 300),
+    }));
+  const people_who_help_me = [...new Set(supporters.map((s) => roleLabel(s.relationship)))];
+  return {
+    friendship: {
+      intake,
+      sign_tally,
+      notes,
+      previous_colour: thread.last_colour,
+      checks_so_far: checksSoFar,
+      people_who_help_me,
+    },
+    namesToHide,
+  };
 }
 
 // Does a (possibly redacted) quote come from the original text? Placeholders

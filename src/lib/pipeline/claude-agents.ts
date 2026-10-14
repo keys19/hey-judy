@@ -10,11 +10,25 @@ import { composeSystem, type AgentConfig } from "./defaults";
 import { createGetMemoriesTool } from "../memory-tools";
 import type { AgentDrivers, StageContext } from "./contracts";
 import type { z } from "zod";
-import { redactReaderOutput, type ImageInput } from "./judy";
+import {
+  redactReaderOutput,
+  redactDeep,
+  AGENT_OUTPUT_KEEP,
+  type ImageInput,
+  type NameRule,
+  type FriendshipContext,
+} from "./judy";
 
 // Hey Judy per-run options. The screenshot is sent to the Reader and the
 // Checker only, and is never logged or stored.
-export type JudyAgentOptions = { image?: ImageInput; namesToHide?: string[] };
+export type JudyAgentOptions = {
+  image?: ImageInput;
+  // The friend's nickname, trusted people's names (shown as their role) and
+  // the user's own name. Removed in code from everything the agents return.
+  namesToHide?: NameRule[];
+  // Judy's memory of this friendship (null on a check with no thread).
+  friendship?: FriendshipContext;
+};
 
 export const MAX_TOOL_ITERATIONS = 6;
 export const MODEL_TIMEOUT_MS = 45_000;
@@ -128,9 +142,11 @@ export function createClaudeAgents(
           messages: [
             {
               role: "user",
+              // Hey Judy: the Analyzer never sees the raw chat, only the Reader's
+              // cleaned facts plus the friendship memory, so it can't repeat names.
               content: untrustedPayload({
-                original_input: input,
                 reader_output: reader,
+                friendship: options.friendship ?? null,
                 reviewer_feedback: feedback ?? null,
               }),
             },
@@ -181,22 +197,31 @@ export function createClaudeAgents(
         throw new Error(
           "Analyzer did not request get_user_memories; no hard-coded tool fallback was executed.",
         );
-      const output: unknown = JSON.parse(finalText);
+      const output: unknown = redactDeep(
+        JSON.parse(finalText),
+        options.namesToHide ?? [],
+        AGENT_OUTPUT_KEEP,
+      );
       return { output, memories };
     },
-    checker: (input, reader, analysis, memories, cfg, ctx) =>
-      structured(
-        CheckerOutputSchema,
-        cfg,
-        {
-          original_input: input,
-          reader_output: reader,
-          analysis_output: analysis,
-          retrieved_memories: memories,
-          input_kind: image ? "screenshot" : "text",
-        },
-        ctx,
-        true, // the Checker independently re-reads the screenshot
+    checker: async (input, reader, analysis, memories, cfg, ctx) =>
+      redactDeep(
+        await structured(
+          CheckerOutputSchema,
+          cfg,
+          {
+            original_input: input,
+            reader_output: reader,
+            analysis_output: analysis,
+            retrieved_memories: memories,
+            friendship: options.friendship ?? null,
+            input_kind: image ? "screenshot" : "text",
+          },
+          ctx,
+          true, // the Checker independently re-reads the screenshot
+        ),
+        options.namesToHide ?? [],
+        AGENT_OUTPUT_KEEP,
       ),
   };
 }
