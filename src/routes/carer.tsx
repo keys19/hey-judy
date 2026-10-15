@@ -67,11 +67,9 @@ function Carer() {
       await refreshProfile();
       await load();
     } catch (err) {
-      toast.error(
-        errorText(err).includes("not")
-          ? "That code didn't work. Check it and try again."
-          : errorText(err),
-      );
+      // The database explains what went wrong in plain words, e.g.
+      // "You cannot be your own trusted person." or "That code did not work…".
+      toast.error(errorText(err));
     } finally {
       setBusy(false);
     }

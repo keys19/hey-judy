@@ -68,6 +68,7 @@ function ChatPage() {
   const [messages, setMessages] = useState<StoredMessage[] | null>(null);
   const [localUser, setLocalUser] = useState<LocalUser | null>(null);
   const [failed, setFailed] = useState(false);
+  const [failDetail, setFailDetail] = useState<string | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
   const [judgeLines, setJudgeLines] = useState<AgentLogRow[]>([]);
   const [text, setText] = useState("");
@@ -123,6 +124,7 @@ function ChatPage() {
       const checking =
         action === "share" || (lastQ?.kind === "question" && lastQ.body.source === "clarify");
       setFailed(false);
+      setFailDetail(null);
       setLocalUser(
         action === "start" ? null : { text: opts.text?.trim() || null, urls: opts.urls ?? [] },
       );
@@ -174,10 +176,26 @@ function ChatPage() {
         }
       } catch (e) {
         console.error(e);
-        await reload().catch(() => {});
+        // The connection can drop on phones (screen locked, app switched, slow
+        // network) while the server keeps working. Wait for Judy's reply to
+        // appear before calling it a failure.
+        setBusy((b) => (b ? { ...b, progress: "Still working… nearly there." } : b));
+        const lastJudyId = [...(messages ?? [])].reverse().find((m) => m.role === "judy")?.id;
+        let recovered = false;
+        for (let i = 0; i < 24 && !recovered; i++) {
+          await new Promise((r) => setTimeout(r, 5000));
+          const fresh = await reload().catch(() => null);
+          const newest = fresh ? [...fresh].reverse().find((m) => m.role === "judy") : undefined;
+          if (newest && newest.id !== lastJudyId) {
+            recovered = true;
+            if (newest.kind === "result" && newest.body.crisis) setCrisis(newest.body);
+          }
+        }
         setLocalUser(null);
-        setFailed(true);
-        toast.error(errorText(e).slice(0, 200));
+        if (!recovered) {
+          setFailed(true);
+          setFailDetail(errorText(e).slice(0, 200));
+        }
       } finally {
         setBusy(null);
         void db.removeChannel(channel);
@@ -285,10 +303,24 @@ function ChatPage() {
       setConsent(null);
       if (n > 0) toast.success("Your trusted person has been told. They will check in with you.");
       else {
-        toast("You haven't added a trusted person yet.", {
-          action: { label: "Add one", onClick: () => void navigate({ to: "/trusted" }) },
-        });
-        setInfo("who_could_i_ask");
+        // Nobody received it: either no trusted person yet, or they haven't
+        // typed their code in yet (only connected people get alerts).
+        const { count } = await db
+          .from("supporters")
+          .select("id", { count: "exact", head: true })
+          .eq("invite_status", "invited");
+        if (count && count > 0)
+          toast("Your trusted person hasn't connected yet.", {
+            description:
+              "Ask them to open Hey Judy on their own phone and type the code from Trusted people.",
+            action: { label: "See code", onClick: () => void navigate({ to: "/trusted" }) },
+          });
+        else {
+          toast("You haven't added a trusted person yet.", {
+            action: { label: "Add one", onClick: () => void navigate({ to: "/trusted" }) },
+          });
+          setInfo("who_could_i_ask");
+        }
       }
     } catch (e) {
       toast.error("Could not send the alert: " + errorText(e));
@@ -371,6 +403,7 @@ function ChatPage() {
         {failed && !busy && (
           <JudyBubble>
             <p>{ERROR_TEXT}</p>
+            {failDetail && <p className="mt-1 text-sm text-[#5E6272]">Details: {failDetail}</p>}
             <button
               type="button"
               className="mt-2 min-h-11 font-bold text-judy-primary underline"

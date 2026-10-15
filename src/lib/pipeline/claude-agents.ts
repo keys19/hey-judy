@@ -337,7 +337,7 @@ export function createLiveAgents(
   const apiKey = process.env["ANTHROPIC_API_KEY"];
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured on the server.");
   return createClaudeAgents(
-    new Anthropic({ apiKey, timeout: MODEL_TIMEOUT_MS, maxRetries: 0 }),
+    new Anthropic({ apiKey, timeout: MODEL_TIMEOUT_MS, maxRetries: 2 }),
     loadMemories,
     options,
   );
