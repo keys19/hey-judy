@@ -6,7 +6,6 @@ import { Gate, useJudy } from "@/components/judy/session";
 import { AppFrame, Orb, PrimaryButton, displayName, inputCls } from "@/components/judy/ui";
 import { BottomSheet } from "@/components/judy/BottomSheet";
 import { PersonRowContent } from "@/components/judy/PersonRow";
-import { MenuButton } from "@/components/judy/MenuSheet";
 import {
   createThread,
   errorText,
@@ -72,9 +71,7 @@ function Home() {
 
   return (
     <AppFrame tabs className="px-5">
-      <div className="flex justify-end pt-3">
-        <MenuButton />
-      </div>
+      <div className="pt-6" />
       <section className="flex flex-col items-center text-center">
         <Orb size={128} />
         <h1 className="mt-4 text-3xl font-bold">{hello}</h1>

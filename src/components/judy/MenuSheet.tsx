@@ -1,125 +1,28 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  ChevronRight,
-  History,
-  LifeBuoy,
-  Lock,
-  Menu,
-  MessageCircle,
-  Settings,
-  ShieldCheck,
-  Trash2,
-  Users,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { History, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { db, errorText } from "@/lib/judy-db";
 import type { Colour, ReplyCard } from "@/lib/pipeline/judy-turn";
 import { BottomSheet } from "./BottomSheet";
-import { PrimaryButton, SecondaryButton, StatusPill, boundariesTitle } from "./ui";
-import { useJudy } from "./session";
+import { PrimaryButton, SecondaryButton, StatusPill } from "./ui";
 
-type Sub = null | "history";
-
-// The app menu (from the Lovable design). In a chat it also offers
-// "Relationship history" for the person you're asking about.
-export function MenuButton({ thread }: { thread?: { id: string; nickname: string } }) {
-  const { profile } = useJudy();
+// "Relationship history" for the person you're asking about: your answers,
+// every past check, and deleting the chat. Opened from the chat header.
+export function HistoryButton({ thread }: { thread: { id: string; nickname: string } }) {
   const [open, setOpen] = useState(false);
-  const [sub, setSub] = useState<Sub>(null);
-  const openSub = (s: Sub) => {
-    setOpen(false);
-    setSub(s);
-  };
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Menu"
+        aria-label={`Relationship history with ${thread.nickname}`}
         className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white px-3 text-base font-bold text-judy-ink shadow-sm hover:bg-judy-lilac"
       >
-        <Menu size={20} aria-hidden="true" /> Menu
+        <History size={20} aria-hidden="true" /> History
       </button>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="right"
-          className="w-[88%] max-w-sm overflow-y-auto border-0 bg-judy-canvas p-5 pt-[max(env(safe-area-inset-top),20px)] text-judy-ink [&>button]:min-h-11 [&>button]:min-w-11 [&>button>svg]:h-6 [&>button>svg]:w-6"
-        >
-          <SheetTitle className="text-2xl font-bold text-judy-ink">Menu</SheetTitle>
-          <SheetDescription className="sr-only">Go to another part of Hey Judy</SheetDescription>
-          <nav className="mt-5 space-y-2" aria-label="Menu">
-            <Item to="/" icon={<MessageCircle />} label="Your chats" onGo={() => setOpen(false)} />
-            <Item
-              to="/rules"
-              icon={<ShieldCheck />}
-              label={boundariesTitle(profile.first_name)}
-              onGo={() => setOpen(false)}
-            />
-            {thread && (
-              <Item
-                icon={<History />}
-                label={`Relationship history — ${thread.nickname}`}
-                onClick={() => openSub("history")}
-              />
-            )}
-            <Item
-              to="/trusted"
-              icon={<Users />}
-              label="Trusted people"
-              onGo={() => setOpen(false)}
-            />
-            <Item
-              to="/privacy"
-              icon={<Lock />}
-              label="Privacy and data"
-              onGo={() => setOpen(false)}
-            />
-            <Item to="/help" icon={<LifeBuoy />} label="Get help" onGo={() => setOpen(false)} />
-            <Item to="/settings" icon={<Settings />} label="Settings" onGo={() => setOpen(false)} />
-          </nav>
-        </SheetContent>
-      </Sheet>
-      {thread && (
-        <HistorySheet open={sub === "history"} onClose={() => setSub(null)} thread={thread} />
-      )}
+      <HistorySheet open={open} onClose={() => setOpen(false)} thread={thread} />
     </>
-  );
-}
-
-function Item({
-  to,
-  icon,
-  label,
-  onClick,
-  onGo,
-}: {
-  to?: "/" | "/rules" | "/settings" | "/trusted" | "/privacy" | "/help";
-  icon: ReactNode;
-  label: string;
-  onClick?: () => void;
-  onGo?: () => void;
-}) {
-  const cls =
-    "flex min-h-14 w-full items-center gap-3 rounded-2xl bg-white px-4 text-left text-lg font-bold shadow-sm hover:bg-judy-lilac focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-judy-primary/30";
-  const inner = (
-    <>
-      <span className="text-judy-primary [&>svg]:h-5 [&>svg]:w-5" aria-hidden="true">
-        {icon}
-      </span>
-      <span className="flex-1">{label}</span>
-      <ChevronRight size={20} aria-hidden="true" className="text-[#8C8F9C]" />
-    </>
-  );
-  return to ? (
-    <Link to={to} className={cls} onClick={onGo}>
-      {inner}
-    </Link>
-  ) : (
-    <button type="button" className={cls} onClick={onClick}>
-      {inner}
-    </button>
   );
 }
 

@@ -140,7 +140,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: "Nunito Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     font-size: 1.125rem;
     line-height: 1.5;
   }
@@ -149,6 +149,7 @@
 
 /* Hey Judy palette (PRD) */
 @theme inline {
+  --font-mono: "DM Mono", ui-monospace, monospace;
   --color-judy-canvas: var(--j-canvas);
   --color-judy-primary: var(--j-primary);
   --color-judy-lilac: var(--j-lilac);

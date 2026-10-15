@@ -20,7 +20,7 @@ import {
 import { BottomSheet } from "@/components/judy/BottomSheet";
 import { BehindTheScenes } from "@/components/judy/BehindTheScenes";
 import { FriendDrawer } from "@/components/judy/FriendDrawer";
-import { MenuButton } from "@/components/judy/MenuSheet";
+import { HistoryButton } from "@/components/judy/MenuSheet";
 import { CrisisScreen, InfoSheets, type InfoSheet } from "@/components/judy/ChatSheets";
 import { shrinkScreenshot } from "@/components/judy/screenshot";
 import { judyTurnFn } from "@/lib/judy.functions";
@@ -321,7 +321,7 @@ function ChatPage() {
           </Link>
           <div className="flex items-center gap-1">
             <BehindTheScenes threadId={threadId} live={judgeLines} />
-            <MenuButton thread={{ id: threadId, nickname: thread.nickname }} />
+            <HistoryButton thread={{ id: threadId, nickname: thread.nickname }} />
           </div>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 px-2">

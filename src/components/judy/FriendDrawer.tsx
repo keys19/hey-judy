@@ -60,7 +60,7 @@ export function FriendDrawer({
         <SheetDescription className="text-base text-[#5E6272]">
           Who do you want to ask Judy about?
         </SheetDescription>
-        {threads.length > 3 && (
+        {threads.length > 0 && (
           <label className="relative mt-4 block">
             <span className="sr-only">Search for a person</span>
             <Search
@@ -71,7 +71,7 @@ export function FriendDrawer({
             <input
               type="search"
               className={inputCls + " rounded-full pl-11"}
-              placeholder="Search"
+              placeholder="Search for a person"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
