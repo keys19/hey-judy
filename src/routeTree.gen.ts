@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CarerRouteImport } from './routes/carer'
+import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -29,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
 const CarerRoute = CarerRouteImport.update({
   id: '/carer',
   path: '/carer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactsRoute = ContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevRoute = DevRouteImport.update({
@@ -80,6 +86,7 @@ const ChatThreadIdRoute = ChatThreadIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/carer': typeof CarerRoute
+  '/contacts': typeof ContactsRoute
   '/dev': typeof DevRoute
   '/help': typeof HelpRoute
   '/onboarding': typeof OnboardingRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/carer': typeof CarerRoute
+  '/contacts': typeof ContactsRoute
   '/dev': typeof DevRoute
   '/help': typeof HelpRoute
   '/onboarding': typeof OnboardingRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/carer': typeof CarerRoute
+  '/contacts': typeof ContactsRoute
   '/dev': typeof DevRoute
   '/help': typeof HelpRoute
   '/onboarding': typeof OnboardingRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/carer'
+    | '/contacts'
     | '/dev'
     | '/help'
     | '/onboarding'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/carer'
+    | '/contacts'
     | '/dev'
     | '/help'
     | '/onboarding'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/carer'
+    | '/contacts'
     | '/dev'
     | '/help'
     | '/onboarding'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CarerRoute: typeof CarerRoute
+  ContactsRoute: typeof ContactsRoute
   DevRoute: typeof DevRoute
   HelpRoute: typeof HelpRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -187,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/carer'
       fullPath: '/carer'
       preLoaderRoute: typeof CarerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contacts': {
+      id: '/contacts'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof ContactsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dev': {
@@ -258,6 +278,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CarerRoute: CarerRoute,
+  ContactsRoute: ContactsRoute,
   DevRoute: DevRoute,
   HelpRoute: HelpRoute,
   OnboardingRoute: OnboardingRoute,

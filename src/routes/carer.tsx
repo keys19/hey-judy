@@ -44,7 +44,7 @@ function Carer() {
   useEffect(() => {
     void load();
     const ch = db
-      .channel("carer-alerts")
+      .channel("carer-alerts-" + crypto.randomUUID())
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "supporter_alerts" },
@@ -190,7 +190,7 @@ function Carer() {
         <form onSubmit={accept} className="space-y-3 rounded-3xl bg-white p-5 shadow-sm">
           <h2 className="text-xl font-bold">Got a code?</h2>
           <p className="text-lg text-[#3F4454]">
-            Type the 6-letter code from the person you support.
+            Type the 6-character code from the person you support.
           </p>
           <label className="sr-only" htmlFor="invite">
             Invite code

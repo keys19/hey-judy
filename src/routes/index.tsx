@@ -71,7 +71,14 @@ function Home() {
 
   return (
     <AppFrame tabs className="px-5">
-      <div className="pt-6" />
+      <div className="flex justify-end pt-4">
+        <Link
+          to="/help"
+          className="inline-flex min-h-11 items-center rounded-full bg-white px-4 text-base font-bold text-judy-primary shadow-sm hover:bg-judy-lilac"
+        >
+          Get help
+        </Link>
+      </div>
       <section className="flex flex-col items-center text-center">
         <Orb size={128} />
         <h1 className="mt-4 text-3xl font-bold">{hello}</h1>

@@ -24,7 +24,7 @@ import {
   UserX,
   Volume2,
   Users,
-  LifeBuoy,
+  BookUser,
   ChevronLeft,
   Camera,
   Gift,
@@ -372,7 +372,7 @@ export function AppFrame({
 const TABS = [
   { to: "/", label: "Your chats", Icon: MessageCircle },
   { to: "/trusted", label: "Supporters", Icon: Users },
-  { to: "/help", label: "Get help", Icon: LifeBuoy },
+  { to: "/contacts", label: "Contacts", Icon: BookUser },
   { to: "/settings", label: "Settings", Icon: Settings },
 ] as const;
 export function TabBar() {
