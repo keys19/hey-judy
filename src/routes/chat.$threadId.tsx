@@ -1,17 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowLeft,
-  Camera,
-  ClipboardPaste,
-  MessageSquareText,
-  Plus,
-  Send,
-  Sparkles,
-  Phone,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Camera, ChevronDown, CircleHelp, Plus, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { Gate, useJudy } from "@/components/judy/session";
 import {
@@ -21,6 +11,7 @@ import {
   PrimaryButton,
   SecondaryButton,
   StatusCard,
+  StatusPill,
   UserBubble,
   cardSpeech,
   inputCls,
@@ -28,6 +19,9 @@ import {
 } from "@/components/judy/ui";
 import { BottomSheet } from "@/components/judy/BottomSheet";
 import { BehindTheScenes } from "@/components/judy/BehindTheScenes";
+import { FriendDrawer } from "@/components/judy/FriendDrawer";
+import { MenuButton } from "@/components/judy/MenuSheet";
+import { CrisisScreen, InfoSheets, type InfoSheet } from "@/components/judy/ChatSheets";
 import { shrinkScreenshot } from "@/components/judy/screenshot";
 import { judyTurnFn } from "@/lib/judy.functions";
 import {
@@ -43,7 +37,7 @@ import {
   type Thread,
 } from "@/lib/judy-db";
 import type { CardAction, ReplyCard, TurnResult } from "@/lib/pipeline/judy-turn";
-import type { ImageInput } from "@/lib/pipeline/judy";
+import { MAX_IMAGES, type ImageInput } from "@/lib/pipeline/judy";
 
 export const Route = createFileRoute("/chat/$threadId")({
   validateSearch: (s: Record<string, unknown>): { start?: number } =>
@@ -57,8 +51,8 @@ export const Route = createFileRoute("/chat/$threadId")({
 });
 
 type Busy = null | { checking: boolean; progress: string };
-type ShareMode = "menu" | "screenshot" | "paste" | "describe";
-type InfoSheet = null | "what_checked" | "check_carefully" | "who_could_i_ask";
+type Shot = { id: string; img: ImageInput; url: string };
+type LocalUser = { text: string | null; urls: string[] };
 
 const ERROR_TEXT = "Something went wrong. Your screenshot was not saved. Try again.";
 
@@ -72,17 +66,45 @@ function ChatPage() {
   const [thread, setThread] = useState<Thread | null>(null);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [messages, setMessages] = useState<StoredMessage[] | null>(null);
-  const [localUser, setLocalUser] = useState<string | null>(null);
+  const [localUser, setLocalUser] = useState<LocalUser | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
   const [judgeLines, setJudgeLines] = useState<AgentLogRow[]>([]);
   const [text, setText] = useState("");
-  const [share, setShare] = useState<ShareMode | null>(null);
+  const [shots, setShots] = useState<Shot[]>([]);
+  // Screenshots stay only in this browser tab so you can see what you sent.
+  // They are never saved anywhere.
+  const [sessionShots, setSessionShots] = useState<Record<string, string[]>>({});
   const [info, setInfo] = useState<InfoSheet>(null);
   const [consent, setConsent] = useState<ReplyCard | null>(null);
   const [crisis, setCrisis] = useState<ReplyCard | null>(null);
+  const [drawer, setDrawer] = useState(false);
   const started = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  const addFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const room = MAX_IMAGES - shots.length;
+    if (room <= 0) {
+      toast("You can add up to " + MAX_IMAGES + " screenshots.");
+      return;
+    }
+    const picked = Array.from(files).slice(0, room);
+    if (files.length > room) toast("Only the first " + MAX_IMAGES + " screenshots were added.");
+    try {
+      const made = await Promise.all(
+        picked.map(async (f) => {
+          const img = await shrinkScreenshot(f, picked.length + shots.length > 1 ? 1280 : 1600);
+          return { id: crypto.randomUUID(), img, url: "data:image/jpeg;base64," + img.data };
+        }),
+      );
+      setShots((s) => [...s, ...made].slice(0, MAX_IMAGES));
+    } catch (e) {
+      toast.error(errorText(e));
+    }
+  };
 
   const reload = useCallback(async () => {
     const m = await listMessages(threadId);
@@ -94,14 +116,16 @@ function ChatPage() {
   const runTurn = useCallback(
     async (
       action: "start" | "answer" | "share",
-      opts: { text?: string; image?: ImageInput; label?: string } = {},
+      opts: { text?: string; images?: ImageInput[]; urls?: string[] } = {},
     ) => {
       const runId = crypto.randomUUID();
       const lastQ = [...(messages ?? [])].reverse().find((m) => m.role === "judy");
       const checking =
         action === "share" || (lastQ?.kind === "question" && lastQ.body.source === "clarify");
       setFailed(false);
-      setLocalUser(action === "start" ? null : (opts.label ?? opts.text ?? null));
+      setLocalUser(
+        action === "start" ? null : { text: opts.text?.trim() || null, urls: opts.urls ?? [] },
+      );
       setBusy({ checking, progress: checking ? "Reading the messages…" : "" });
 
       const channel = db
@@ -132,10 +156,14 @@ function ChatPage() {
             runId,
             action,
             ...(opts.text?.trim() ? { text: opts.text.trim() } : {}),
-            ...(opts.image ? { image: opts.image } : {}),
+            ...(opts.images?.length ? { images: opts.images } : {}),
           },
         })) as TurnResult;
-        await reload();
+        const fresh = await reload();
+        if (opts.urls?.length) {
+          const mine = [...fresh].reverse().find((m) => m.role === "user" && m.kind === "shared");
+          if (mine) setSessionShots((m) => ({ ...m, [mine.id]: opts.urls! }));
+        }
         setLocalUser(null);
         if (result.message.kind === "result") {
           const card = result.message.body;
@@ -204,12 +232,22 @@ function ChatPage() {
   const openQuestion = lastJudy?.kind === "question" ? lastJudy.body : null;
   const intakeOpen = openQuestion?.source === "intake";
 
+  const canAttach = !openQuestion;
   const send = () => {
     const t = text.trim();
-    if (!t || busy) return;
+    if (busy) return;
+    if (openQuestion) {
+      if (!t) return;
+      setText("");
+      void runTurn("answer", { text: t });
+      return;
+    }
+    if (!t && !shots.length) return;
+    const images = shots.map((x) => x.img);
+    const urls = shots.map((x) => x.url);
     setText("");
-    if (openQuestion) void runTurn("answer", { text: t });
-    else void runTurn("share", { text: t });
+    setShots([]);
+    void runTurn("share", { ...(t ? { text: t } : {}), images, urls });
   };
 
   // ---- card buttons ----
@@ -230,10 +268,10 @@ function ChatPage() {
         setConsent(card);
         break;
       case "try_again":
-        setShare("screenshot");
+        fileRef.current?.click();
         break;
       case "describe":
-        setShare("describe");
+        composerRef.current?.focus();
         break;
       default:
         break;
@@ -264,41 +302,47 @@ function ChatPage() {
       </AppFrame>
     );
 
+  const latestColour =
+    ([...messages].reverse().find((m) => m.kind === "result")?.body as ReplyCard | undefined)
+      ?.colour ?? null;
   const latestResultId = [...messages].reverse().find((m) => m.kind === "result")?.id;
 
   return (
     <AppFrame className="h-dvh">
       {/* Header: Ask Judy about [name ▾] */}
-      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-[#E3DCE8] bg-judy-canvas/95 px-3 py-2 backdrop-blur">
-        <Link
-          to="/"
-          aria-label="Back to my chats"
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full hover:bg-white"
-        >
-          <ArrowLeft size={24} />
-        </Link>
-        <label className="flex min-w-0 flex-1 items-center gap-1 text-lg">
-          <span className="shrink-0 font-bold">Ask Judy about</span>
-          <select
-            aria-label="Choose who to ask about"
-            className="min-h-11 min-w-0 flex-1 truncate rounded-xl border-0 bg-transparent font-bold text-judy-primary focus:ring-4 focus:ring-judy-primary/30"
-            value={threadId}
-            onChange={(e) =>
-              void navigate({
-                to: "/chat/$threadId",
-                params: { threadId: e.target.value },
-                search: {},
-              })
-            }
+      <header className="sticky top-0 z-30 border-b border-[#E3DCE8] bg-judy-canvas/95 px-3 pb-3 pt-2 backdrop-blur">
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            to="/"
+            aria-label="Back to my chats"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full hover:bg-white"
           >
-            {threads.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.nickname}
-              </option>
-            ))}
-          </select>
-        </label>
-        <BehindTheScenes threadId={threadId} live={judgeLines} />
+            <ArrowLeft size={24} />
+          </Link>
+          <div className="flex items-center gap-1">
+            <BehindTheScenes threadId={threadId} live={judgeLines} />
+            <MenuButton thread={{ id: threadId, nickname: thread.nickname }} />
+          </div>
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 px-2">
+          <h1 className="shrink-0 text-2xl font-bold">Ask Judy about</h1>
+          <button
+            type="button"
+            onClick={() => setDrawer(true)}
+            aria-label={`${thread.nickname}. Change who you are asking about`}
+            className="inline-flex min-h-11 min-w-0 max-w-full items-center gap-1 rounded-full border-2 border-judy-primary/40 bg-white px-4 text-lg font-bold text-judy-primary"
+          >
+            <span className="truncate">{thread.nickname}</span>
+            <ChevronDown size={18} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-1.5 px-2">
+          {latestColour ? (
+            <StatusPill colour={latestColour} className="text-sm" />
+          ) : (
+            <span className="text-base text-[#5E6272]">Not checked yet</span>
+          )}
+        </div>
       </header>
 
       {/* Messages */}
@@ -311,9 +355,18 @@ function ChatPage() {
             onOption={(o) => void runTurn("answer", { text: o })}
             onAction={m.kind === "result" ? onAction(m.body) : undefined}
             showActions={m.kind === "result" && m.id === latestResultId}
+            urls={sessionShots[m.id]}
           />
         ))}
-        {localUser && <UserBubble>{localUser}</UserBubble>}
+        {localUser && (
+          <UserBubble>
+            <SharedContent
+              text={localUser.text}
+              urls={localUser.urls}
+              count={localUser.urls.length}
+            />
+          </UserBubble>
+        )}
         {busy && (busy.checking ? <Checking progress={busy.progress} /> : <Typing />)}
         {failed && !busy && (
           <JudyBubble>
@@ -321,7 +374,7 @@ function ChatPage() {
             <button
               type="button"
               className="mt-2 min-h-11 font-bold text-judy-primary underline"
-              onClick={() => setShare("menu")}
+              onClick={() => composerRef.current?.focus()}
             >
               Try again
             </button>
@@ -330,25 +383,71 @@ function ChatPage() {
         <div ref={endRef} />
       </div>
 
-      {/* Quick actions + composer */}
+      {/* Composer: screenshots and/or text, sent together */}
       <div className="sticky bottom-0 border-t border-[#E3DCE8] bg-judy-canvas px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2">
-        {!openQuestion && !busy && (
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(e) => {
+            void addFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        {canAttach && !busy && shots.length === 0 && (
           <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
             <QuickAction
               icon={<Camera size={18} />}
-              label="Add screenshot"
-              onClick={() => setShare("screenshot")}
+              label="Add screenshots"
+              onClick={() => fileRef.current?.click()}
             />
             <QuickAction
-              icon={<ClipboardPaste size={18} />}
-              label="Paste message"
-              onClick={() => setShare("paste")}
+              icon={<CircleHelp size={18} />}
+              label="How do I take a screenshot?"
+              onClick={() => setInfo("how_screenshot")}
             />
-            <QuickAction
-              icon={<MessageSquareText size={18} />}
-              label="Describe what happened"
-              onClick={() => setShare("describe")}
-            />
+          </div>
+        )}
+        {shots.length > 0 && (
+          <div className="mb-2">
+            <ul className="flex gap-2 overflow-x-auto pb-1" aria-label="Screenshots to send">
+              {shots.map((x, i) => (
+                <li key={x.id} className="relative shrink-0">
+                  <img
+                    src={x.url}
+                    alt={`Screenshot ${i + 1}`}
+                    className="h-24 w-16 rounded-xl border-2 border-white object-cover shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Remove screenshot ${i + 1}`}
+                    onClick={() => setShots((s) => s.filter((y) => y.id !== x.id))}
+                    className="absolute -right-2 -top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-judy-ink text-white shadow"
+                  >
+                    <X size={16} />
+                  </button>
+                </li>
+              ))}
+              {shots.length < MAX_IMAGES && (
+                <li className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    aria-label="Add another screenshot"
+                    className="inline-flex h-24 w-16 items-center justify-center rounded-xl border-2 border-dashed border-judy-primary/50 text-judy-primary"
+                  >
+                    <Plus size={24} />
+                  </button>
+                </li>
+              )}
+            </ul>
+            <p className="mt-1 text-sm text-[#5E6272]">
+              Add a note below if you like, then send. Screenshots are never saved.
+            </p>
           </div>
         )}
         <form
@@ -358,23 +457,24 @@ function ChatPage() {
             send();
           }}
         >
-          {!intakeOpen && (
+          {canAttach && (
             <button
               type="button"
-              aria-label="Share something to check"
-              disabled={!!busy}
-              onClick={() => setShare("menu")}
+              aria-label="Add screenshots"
+              disabled={!!busy || shots.length >= MAX_IMAGES}
+              onClick={() => fileRef.current?.click()}
               className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-full bg-white text-judy-primary shadow-sm disabled:opacity-50"
             >
               <Plus size={26} />
             </button>
           )}
           <label htmlFor="composer" className="sr-only">
-            {openQuestion ? "Your answer" : "Message to check"}
+            {openQuestion ? "Your answer" : "Paste the messages or describe what happened"}
           </label>
           <textarea
             id="composer"
-            rows={1}
+            ref={composerRef}
+            rows={Math.min(5, Math.max(1, text.split("\n").length))}
             value={text}
             disabled={!!busy}
             onChange={(e) => setText(e.target.value)}
@@ -384,32 +484,19 @@ function ChatPage() {
                 send();
               }
             }}
-            placeholder={openQuestion ? "Type your answer…" : "Type or paste here…"}
-            className={inputCls + " max-h-36 min-h-12 resize-none rounded-3xl"}
+            placeholder={openQuestion ? "Type your answer…" : "Paste or describe…"}
+            className={inputCls + " max-h-40 min-h-12 resize-none rounded-3xl"}
           />
           <button
             type="submit"
-            aria-label="Send"
-            disabled={!!busy || !text.trim()}
+            aria-label={shots.length ? "Send to Judy to check" : "Send"}
+            disabled={!!busy || (!text.trim() && (openQuestion ? true : shots.length === 0))}
             className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-full bg-judy-primary text-white disabled:opacity-40"
           >
             <Send size={22} />
           </button>
         </form>
       </div>
-
-      <ShareSheet
-        mode={share}
-        setMode={setShare}
-        onSubmit={(t, image) => {
-          setShare(null);
-          void runTurn("share", {
-            ...(t ? { text: t } : {}),
-            ...(image ? { image } : {}),
-            label: image ? (t ? `📷 Screenshot · ${t}` : "📷 Screenshot") : t,
-          });
-        }}
-      />
 
       <BottomSheet
         open={!!consent}
@@ -425,6 +512,7 @@ function ChatPage() {
         </div>
       </BottomSheet>
 
+      <FriendDrawer open={drawer} onOpenChange={setDrawer} threads={threads} currentId={threadId} />
       <InfoSheets which={info} onClose={() => setInfo(null)} />
       {crisis && <CrisisScreen card={crisis} onClose={() => setCrisis(null)} />}
     </AppFrame>
@@ -438,19 +526,24 @@ function MessageView({
   onOption,
   onAction,
   showActions,
+  urls,
 }: {
   m: StoredMessage;
   isLatestQuestion: boolean;
   onOption: (o: string) => void;
   onAction: ((a: CardAction) => void) | undefined;
   showActions: boolean;
+  urls: string[] | undefined;
 }) {
   if (m.role === "user") {
     if (m.kind === "shared")
       return (
         <UserBubble time={clockTime(m.created_at)}>
-          {m.body.screenshot && <span className="block font-bold">📷 Screenshot shared</span>}
-          {m.body.text && <span className="block whitespace-pre-wrap">{m.body.text}</span>}
+          <SharedContent
+            text={m.body.text}
+            urls={urls ?? []}
+            count={m.body.screenshots ?? (m.body.screenshot ? 1 : 0)}
+          />
         </UserBubble>
       );
     return <UserBubble time={clockTime(m.created_at)}>{m.body.text}</UserBubble>;
@@ -564,293 +657,35 @@ function Checking({ progress }: { progress: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-function ShareSheet({
-  mode,
-  setMode,
-  onSubmit,
+// What the person shared: screenshot thumbnails (this session only) and/or text.
+function SharedContent({
+  text,
+  urls,
+  count,
 }: {
-  mode: ShareMode | null;
-  setMode: (m: ShareMode | null) => void;
-  onSubmit: (text: string, image: ImageInput | null) => void;
-}) {
-  const [text, setText] = useState("");
-  const [image, setImage] = useState<ImageInput | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (mode === null) {
-      setText("");
-      setImage(null);
-      setPreview(null);
-      setErr(null);
-    }
-  }, [mode]);
-
-  const title =
-    mode === "screenshot"
-      ? "Add a screenshot"
-      : mode === "paste"
-        ? "Paste a message"
-        : mode === "describe"
-          ? "Describe what happened"
-          : "What would you like to share?";
-
-  return (
-    <BottomSheet open={mode !== null} onOpenChange={(v) => !v && setMode(null)} title={title}>
-      {mode === "menu" && (
-        <div className="space-y-3">
-          <MenuItem
-            icon={<Camera />}
-            label="Add screenshot"
-            onClick={() => setMode("screenshot")}
-          />
-          <MenuItem
-            icon={<ClipboardPaste />}
-            label="Paste a message"
-            onClick={() => setMode("paste")}
-          />
-          <MenuItem
-            icon={<MessageSquareText />}
-            label="Describe what happened"
-            onClick={() => setMode("describe")}
-          />
-          <details className="rounded-2xl bg-judy-canvas p-4 text-lg">
-            <summary className="min-h-11 cursor-pointer font-bold text-judy-primary">
-              How do I take a screenshot?
-            </summary>
-            <ul className="mt-2 list-disc space-y-1 pl-6">
-              <li>iPhone: press the side button and volume up together.</li>
-              <li>Android: press power and volume down together.</li>
-              <li>Computer: Windows key + Shift + S, or Cmd + Shift + 4 on a Mac.</li>
-            </ul>
-          </details>
-        </div>
-      )}
-
-      {mode === "screenshot" && (
-        <div className="space-y-4">
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            className="sr-only"
-            aria-label="Choose a screenshot"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              setErr(null);
-              shrinkScreenshot(f)
-                .then((img) => {
-                  setImage(img);
-                  setPreview("data:image/jpeg;base64," + img.data);
-                })
-                .catch((x) => setErr(errorText(x)));
-            }}
-          />
-          {preview ? (
-            <div className="relative">
-              <img
-                src={preview}
-                alt="Your screenshot"
-                className="max-h-72 w-full rounded-2xl object-contain bg-judy-canvas"
-              />
-              <button
-                type="button"
-                aria-label="Remove screenshot"
-                onClick={() => {
-                  setImage(null);
-                  setPreview(null);
-                }}
-                className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/90"
-              >
-                <X />
-              </button>
-            </div>
-          ) : (
-            <SecondaryButton onClick={() => fileRef.current?.click()}>
-              <Camera size={22} /> Choose a screenshot
-            </SecondaryButton>
-          )}
-          {err && <p className="text-lg text-judy-red">{err}</p>}
-          <label className="block">
-            <span className="mb-1 block text-lg font-bold">Anything to add? (optional)</span>
-            <textarea
-              className={inputCls}
-              rows={2}
-              value={text}
-              maxLength={1000}
-              onChange={(e) => setText(e.target.value)}
-            />
-          </label>
-          <p className="text-base text-[#5E6272]">
-            Your screenshot is never saved. Names and numbers are hidden before Judy reads it.
-          </p>
-          <PrimaryButton disabled={!image} onClick={() => onSubmit(text.trim(), image)}>
-            Check with Judy
-          </PrimaryButton>
-        </div>
-      )}
-
-      {(mode === "paste" || mode === "describe") && (
-        <div className="space-y-4">
-          <label className="block">
-            <span className="mb-1 block text-lg font-bold">
-              {mode === "paste" ? "Paste the message here" : "Tell Judy what happened"}
-            </span>
-            <textarea
-              className={inputCls}
-              rows={6}
-              autoFocus
-              maxLength={4000}
-              value={text}
-              placeholder={
-                mode === "paste"
-                  ? "For example: Hey, can you lend me £50 tonight? Don't tell your support worker."
-                  : "For example: They asked me for money again and said it was urgent."
-              }
-              onChange={(e) => setText(e.target.value)}
-            />
-          </label>
-          <PrimaryButton disabled={!text.trim()} onClick={() => onSubmit(text.trim(), null)}>
-            Check with Judy
-          </PrimaryButton>
-        </div>
-      )}
-    </BottomSheet>
-  );
-}
-
-function MenuItem({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
+  text: string | null;
+  urls: string[];
+  count: number;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-16 w-full items-center gap-4 rounded-2xl bg-judy-canvas px-4 text-left text-lg font-bold hover:bg-judy-lilac focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-judy-primary/30"
-    >
-      <span
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-judy-primary"
-        aria-hidden="true"
-      >
-        {icon}
-      </span>
-      {label}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-function InfoSheets({ which, onClose }: { which: InfoSheet; onClose: () => void }) {
-  const content: Record<Exclude<InfoSheet, null>, { title: string; body: React.ReactNode }> = {
-    what_checked: {
-      title: "What did Judy check?",
-      body: (
-        <p className="text-lg">
-          Judy read the messages, checked your rules and what happened before with this person. A
-          second AI then double-checked the answer. Judy can still make mistakes.
-        </p>
-      ),
-    },
-    check_carefully: {
-      title: "How to check carefully",
-      body: (
-        <ul className="list-disc space-y-2 pl-6 text-lg">
-          <li>Don't rush. A real friend will wait.</li>
-          <li>Check who they are using a number or account you already know.</li>
-          <li>Never share codes, passwords, bank details or your PIN.</li>
-          <li>Talk to someone you trust before sending money or gifts.</li>
-        </ul>
-      ),
-    },
-    who_could_i_ask: {
-      title: "Who could I ask?",
-      body: (
-        <ul className="list-disc space-y-2 pl-6 text-lg">
-          <li>A family member or friend you know in person</li>
-          <li>Your support worker or carer</li>
-          <li>Your GP</li>
-          <li>
-            Citizens Advice:{" "}
-            <a className="font-bold text-judy-primary underline" href="tel:08082231133">
-              0808 223 1133
-            </a>
-          </li>
-          <li>
-            Report a scam to Action Fraud:{" "}
-            <a className="font-bold text-judy-primary underline" href="tel:03001232040">
-              0300 123 2040
-            </a>
-          </li>
-        </ul>
-      ),
-    },
-  };
-  const c = which ? content[which] : null;
-  return (
-    <BottomSheet open={!!c} onOpenChange={(v) => !v && onClose()} title={c?.title ?? ""}>
-      <div className="space-y-5">
-        {c?.body}
-        {which === "who_could_i_ask" && (
-          <Link to="/trusted" className="block text-lg font-bold text-judy-primary underline">
-            Add a trusted person in Judy
-          </Link>
-        )}
-        <PrimaryButton arrow={false} onClick={onClose}>
-          OK
-        </PrimaryButton>
-      </div>
-    </BottomSheet>
-  );
-}
-
-function CrisisScreen({ card, onClose }: { card: ReplyCard; onClose: () => void }) {
-  return (
-    <div
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="crisis-h"
-      className="fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-[#B8401F] px-6 py-10 text-white"
-    >
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
-        <Sparkles size={40} aria-hidden="true" />
-        <h1 id="crisis-h" className="mt-4 text-3xl font-bold">
-          You are not alone. Please talk to someone now.
-        </h1>
-        <p className="mt-3 text-xl">
-          {card.explanation || "This message is very worrying. You deserve support."}
-        </p>
-        <a
-          href="tel:116123"
-          className="mt-8 flex min-h-16 items-center justify-center gap-3 rounded-full bg-white text-xl font-bold text-[#8F2F15]"
-        >
-          <Phone /> Call Samaritans: 116 123
-        </a>
-        <p className="mt-2 text-center text-lg">Free, any time, day or night.</p>
-        <a
-          href="tel:999"
-          className="mt-5 flex min-h-14 items-center justify-center rounded-full border-2 border-white text-xl font-bold"
-        >
-          In danger now? Call 999
-        </a>
-        {card.trusted_person_told && (
-          <p className="mt-6 rounded-2xl bg-white/15 p-4 text-lg">
-            Your trusted person has been told.
-          </p>
-        )}
-        <button type="button" onClick={onClose} className="mt-auto min-h-12 pt-8 text-lg underline">
-          Back to the chat
-        </button>
-      </div>
-    </div>
+    <>
+      {urls.length > 0 ? (
+        <span className="mb-1 flex flex-wrap gap-1.5">
+          {urls.map((u, i) => (
+            <img
+              key={i}
+              src={u}
+              alt={`Screenshot ${i + 1} you shared`}
+              className="h-28 w-auto max-w-[45%] rounded-lg object-cover"
+            />
+          ))}
+        </span>
+      ) : count > 0 ? (
+        <span className="block font-bold">
+          📷 {count === 1 ? "1 screenshot" : `${count} screenshots`} shared (not saved)
+        </span>
+      ) : null}
+      {text && <span className="block whitespace-pre-wrap">{text}</span>}
+    </>
   );
 }

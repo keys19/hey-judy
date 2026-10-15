@@ -3,14 +3,15 @@ import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Gate, useJudy } from "@/components/judy/session";
-import { AppFrame, Orb, PrimaryButton, STATUS, StatusCircle, inputCls } from "@/components/judy/ui";
+import { AppFrame, Orb, PrimaryButton, inputCls } from "@/components/judy/ui";
 import { BottomSheet } from "@/components/judy/BottomSheet";
+import { PersonRowContent } from "@/components/judy/PersonRow";
+import { MenuButton } from "@/components/judy/MenuSheet";
 import {
   createThread,
   errorText,
   latestCheckByThread,
   listThreads,
-  timeAgo,
   type Thread,
 } from "@/lib/judy-db";
 import type { Colour } from "@/lib/pipeline/judy-turn";
@@ -66,7 +67,10 @@ function Home() {
   const hello = profile.first_name ? `Hi ${profile.first_name}` : "Hi there";
 
   return (
-    <AppFrame tabs className="px-5 pt-8">
+    <AppFrame tabs className="px-5">
+      <div className="flex justify-end pt-3">
+        <MenuButton />
+      </div>
       <section className="flex flex-col items-center text-center">
         <Orb size={140} />
         <h1 className="mt-6 text-3xl font-bold">{hello}</h1>
@@ -98,24 +102,7 @@ function Home() {
                     search={{ start: 0 }}
                     className="flex min-h-16 items-center gap-4 rounded-2xl bg-white px-4 py-3 shadow-sm transition hover:shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-judy-primary/30"
                   >
-                    {last ? (
-                      <StatusCircle colour={last.colour} size={40} />
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-judy-lilac text-lg font-bold text-judy-primary"
-                      >
-                        {t.nickname.slice(0, 1).toUpperCase()}
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-lg font-bold">{t.nickname}</span>
-                      <span className="block text-base text-[#5E6272]">
-                        {last
-                          ? `${STATUS[last.colour].word} · ${timeAgo(last.created_at)}`
-                          : "Not checked yet"}
-                      </span>
-                    </span>
+                    <PersonRowContent nickname={t.nickname} last={last} />
                     <ChevronRight aria-hidden="true" className="text-[#8C8F9C]" />
                   </Link>
                 </li>

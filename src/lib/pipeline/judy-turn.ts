@@ -55,7 +55,7 @@ export type TurnResult = {
 export type TurnInput =
   | { action: "start" }
   | { action: "answer"; text: string }
-  | { action: "share"; text?: string; image?: ImageInput };
+  | { action: "share"; text?: string; image?: ImageInput; images?: ImageInput[] };
 
 // ---------------------------------------------------------------------------
 // Fixed wording (from the PRD)
@@ -98,17 +98,12 @@ export const INTAKE_QUESTIONS: Omit<JudyQuestion, "source">[] = [
     options: ["Less than a month", "1 to 6 months", "More than 6 months"],
     free_text: true,
   },
-  {
-    id: "anything_else",
-    text: "Is there anything else you would like to tell me about them?",
-    options: ["No, that's all"],
-    free_text: true,
-  },
 ];
 export const MAX_FOLLOW_UPS = 2;
 const GREETING =
-  "Hi! I can help you check messages from this person. You decide what to do. First, three quick questions.";
-const INTAKE_DONE = "Thank you. Now add a screenshot, paste a message, or tell me what happened.";
+  "Hi! I can help you check messages from this person. You decide what to do. First, two quick questions.";
+const INTAKE_DONE =
+  "Thank you. Now show me the conversation. Add screenshots, paste the messages or tell me what happened. You can do more than one.";
 const ERROR_TEXT = "Something went wrong. Your screenshot was not saved. Try again.";
 
 // ---------------------------------------------------------------------------
@@ -322,7 +317,7 @@ export type TurnDeps = {
   store: JudyStore;
   configs: AgentConfigs;
   makeAgents: (options: {
-    image?: ImageInput;
+    images?: ImageInput[];
     friendship: FriendshipContext;
     namesToHide: NameRule[];
     canAskQuestion: boolean;
@@ -425,7 +420,7 @@ export async function judyTurn(
   const memory = await store.loadFriendship(args.threadId);
   const names = memory.namesToHide;
   let inputText: string;
-  let image: ImageInput | undefined;
+  let images: ImageInput[] = [];
   let storedReader: ReaderOutput | null = null;
   let followUps: { question: string; answer: string }[] = [];
 
@@ -442,14 +437,16 @@ export async function judyTurn(
   } else {
     // A share (or a free-text answer with nothing pending, treated as a share).
     const text = (input.text ?? "").trim().slice(0, 4000);
-    image = input.action === "share" ? input.image : undefined;
-    if (!text && !image)
+    if (input.action === "share")
+      images = input.images?.length ? input.images : input.image ? [input.image] : [];
+    if (!text && !images.length)
       throw new Error("Add a screenshot, paste a message or describe what happened.");
     // Names are removed before anything is saved; the screenshot is never saved.
     inputText = text ? redactText(text, names) : SCREENSHOT_PLACEHOLDER;
     await store.addMessage(args.threadId, "user", "shared", {
       text: text ? inputText : null,
-      screenshot: !!image,
+      screenshot: images.length > 0,
+      screenshots: images.length,
     });
   }
 
@@ -473,7 +470,7 @@ export async function judyTurn(
 
   const canAskQuestion = followUps.length < MAX_FOLLOW_UPS;
   const agents = deps.makeAgents({
-    ...(image ? { image } : {}),
+    ...(images.length ? { images } : {}),
     friendship: memory.friendship,
     namesToHide: names,
     canAskQuestion,
@@ -487,7 +484,7 @@ export async function judyTurn(
     runId: args.runId,
     store: loggingStore,
     agents,
-    fromScreenshot: !!image || !!storedReader,
+    fromScreenshot: images.length > 0 || !!storedReader,
   });
 
   const reader = stageOutput<ReaderOutput>(result, "reader");

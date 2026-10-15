@@ -60,8 +60,17 @@ describe("judyTurnFn input", () => {
     });
     expect(toTurnInput(JudyTurnInputSchema.parse({ ...ids, action: "share", image }))).toEqual({
       action: "share",
-      image,
+      images: [image],
     });
+    // several screenshots at once (and/or text)
+    expect(
+      toTurnInput(
+        JudyTurnInputSchema.parse({ ...ids, action: "share", text: "hi", images: [image, image] }),
+      ),
+    ).toEqual({ action: "share", text: "hi", images: [image, image] });
+    expect(() =>
+      JudyTurnInputSchema.parse({ ...ids, action: "share", images: Array(5).fill(image) }),
+    ).toThrow();
   });
   it("rejects empty answers/shares, bad ids, unknown actions and non-base64 images", () => {
     const bad = [

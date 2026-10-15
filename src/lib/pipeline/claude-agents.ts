@@ -24,6 +24,7 @@ import {
 // Checker only, and is never logged or stored.
 export type JudyAgentOptions = {
   image?: ImageInput;
+  images?: ImageInput[];
   // The friend's nickname, trusted people's names (shown as their role) and
   // the user's own name. Removed in code from everything the agents return.
   namesToHide?: NameRule[];
@@ -53,7 +54,12 @@ export function createClaudeAgents(
   loadMemories: (signal: AbortSignal) => Promise<Memory[]>,
   options: JudyAgentOptions = {},
 ): AgentDrivers {
-  const image = options.image;
+  const images: ImageInput[] = options.images?.length
+    ? options.images
+    : options.image
+      ? [options.image]
+      : [];
+  const image = images[0];
   async function structured(
     schema: z.ZodType,
     cfg: AgentConfig,
@@ -66,14 +72,15 @@ export function createClaudeAgents(
       mode: "messages.create",
       structured_output: true,
       screenshot_attached: withImage && !!image,
+      screenshots: withImage ? images.length : 0,
     });
     const content =
       withImage && image
         ? [
-            {
+            ...images.map((im) => ({
               type: "image" as const,
-              source: { type: "base64" as const, media_type: image.media_type, data: image.data },
-            },
+              source: { type: "base64" as const, media_type: im.media_type, data: im.data },
+            })),
             { type: "text" as const, text: untrustedPayload(data) },
           ]
         : untrustedPayload(data);
@@ -116,6 +123,7 @@ export function createClaudeAgents(
         image
           ? {
               input_kind: "screenshot",
+              screenshot_count: images.length,
               original_input: input,
               ...(roles.length ? { known_people: roles } : {}),
             }

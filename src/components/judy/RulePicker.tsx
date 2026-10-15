@@ -74,7 +74,21 @@ export function RulePicker({
     setRules((rs) => rs.map((r) => (r.code === code ? (data as Rule) : r)));
   };
 
-  const customRule = rules.find((r) => r.code === "custom" && r.active);
+  // Your own rules: as many as you like. Each gets its own code (custom_…).
+  const ownRules = rules.filter((r) => r.code.startsWith("custom") && r.active);
+  const addOwn = async (text: string) => {
+    const code = "custom_" + Date.now().toString(36);
+    await setRule(code, text, true);
+  };
+  const removeOwn = async (r: Rule) => {
+    const prev = rules;
+    setRules((rs) => rs.filter((x) => x.id !== r.id));
+    const { error } = await db.from("rules").delete().eq("id", r.id);
+    if (error) {
+      setRules(prev);
+      toast.error("Could not remove that rule: " + error.message);
+    }
+  };
 
   if (loading) return <p className="px-1 text-lg text-[#5E6272]">Loading your rules…</p>;
 
@@ -114,49 +128,55 @@ export function RulePicker({
       </ul>
 
       <div className="rounded-2xl bg-white p-4">
-        <h3 className="text-lg font-bold">My own rule</h3>
-        {customRule ? (
-          <div className="mt-2 flex items-start gap-3">
-            <p className="flex-1 text-lg">{customRule.text}</p>
-            <button
-              type="button"
-              aria-label="Remove my own rule"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#5E6272] hover:bg-judy-canvas"
-              onClick={() => void setRule("custom", customRule.text, false)}
-            >
-              <Trash2 size={22} />
-            </button>
-          </div>
-        ) : (
-          <form
-            className="mt-2 flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const text = custom.trim();
-              if (!text) return;
-              void setRule("custom", text.slice(0, 200), true).then(() => setCustom(""));
-            }}
-          >
-            <label className="sr-only" htmlFor="custom-rule">
-              Write your own rule
-            </label>
-            <input
-              id="custom-rule"
-              className={inputCls}
-              placeholder="For example: I don't lend my phone"
-              value={custom}
-              maxLength={200}
-              onChange={(e) => setCustom(e.target.value)}
-            />
-            <button
-              type="submit"
-              aria-label="Add rule"
-              className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-full bg-judy-primary text-white"
-            >
-              <Plus size={24} />
-            </button>
-          </form>
+        <h3 className="text-lg font-bold">My own rules</h3>
+        {ownRules.length > 0 && (
+          <ul className="mt-2 space-y-2">
+            {ownRules.map((r) => (
+              <li key={r.id} className="flex items-start gap-3 rounded-xl bg-judy-canvas px-3 py-2">
+                <Check size={20} className="mt-1 shrink-0 text-judy-primary" aria-hidden="true" />
+                <p className="flex-1 text-lg">{r.text}</p>
+                <button
+                  type="button"
+                  aria-label={`Remove rule: ${r.text}`}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#5E6272] hover:bg-white"
+                  onClick={() => void removeOwn(r)}
+                >
+                  <Trash2 size={22} />
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const text = custom.trim();
+            if (!text) return;
+            setCustom("");
+            void addOwn(text.slice(0, 200));
+          }}
+        >
+          <label className="sr-only" htmlFor="custom-rule">
+            Write a new rule of your own
+          </label>
+          <input
+            id="custom-rule"
+            className={inputCls}
+            placeholder="For example: I don't lend my phone"
+            value={custom}
+            maxLength={200}
+            onChange={(e) => setCustom(e.target.value)}
+          />
+          <button
+            type="submit"
+            aria-label="Add rule"
+            disabled={!custom.trim()}
+            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-full bg-judy-primary text-white disabled:opacity-40"
+          >
+            <Plus size={24} />
+          </button>
+        </form>
       </div>
     </div>
   );

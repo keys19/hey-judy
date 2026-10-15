@@ -61,7 +61,7 @@ export type StoredMessage =
       id: string;
       role: "user";
       kind: "shared";
-      body: { text: string | null; screenshot: boolean };
+      body: { text: string | null; screenshot: boolean; screenshots?: number };
       created_at: string;
     }
   | { id: string; role: "user"; kind: "answer"; body: { text: string }; created_at: string }

@@ -51,15 +51,37 @@ function Welcome() {
   return (
     <AppFrame className="px-6 py-10">
       <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <Orb mood="neutral" size={150} />
-        <h1 className="mt-8 text-3xl font-bold">Hi, I'm Judy</h1>
+        <Orb mood="neutral" size={mode === "intro" ? 130 : 96} />
+        <h1 className="mt-4 text-3xl font-bold">Hi, I'm Judy</h1>
         <p className="mt-3 text-xl text-[#3F4454]">
           Not sure about a message from someone? Ask me. I'll help you spot warning signs.
         </p>
-        <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-lg">
-          I'm an <strong>AI helper, not a person</strong>. I can make mistakes. You always decide
-          what to do.
-        </p>
+        {mode === "intro" ? (
+          <ol className="mt-6 w-full space-y-3 text-left">
+            {[
+              "Judy helps you check people you talk to online.",
+              "You can ask Judy before you decide what to do.",
+              "Judy is an AI helper, not a person. It can make mistakes.",
+            ].map((t, i) => (
+              <li
+                key={i}
+                className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-lg shadow-sm"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-judy-primary font-bold text-judy-primary"
+                >
+                  {i + 1}
+                </span>
+                {t}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-lg">
+            I'm an <strong>AI helper, not a person</strong>. You always decide what to do.
+          </p>
+        )}
       </div>
 
       {mode === "intro" ? (

@@ -41,7 +41,7 @@ export const HEX: Record<Colour, string> = {
   grey: "#8E8E99",
 };
 export const STATUS: Record<Colour, { title: string; word: string; Icon: typeof Check }> = {
-  green: { title: "No clear warning signs", word: "No clear signs", Icon: Check },
+  green: { title: "No clear warning signs", word: "No clear warning signs", Icon: Check },
   amber: { title: "Be careful", word: "Be careful", Icon: AlertTriangle },
   red: { title: "High risk — stop and get help", word: "High risk", Icon: AlertOctagon },
   grey: { title: "Not enough information", word: "Need more detail", Icon: HelpCircle },
@@ -64,14 +64,15 @@ export function StatusCircle({ colour, size = 44 }: { colour: Colour; size?: num
 // The orb (Judy). Colour + face change with mood; never replaces status words.
 // ---------------------------------------------------------------------------
 export type Mood = "neutral" | "thinking" | Colour;
-const ORB: Record<Mood, { a: string; b: string; word: string }> = {
-  neutral: { a: "#E9DAF0", b: "#B98BCB", word: "ready" },
-  thinking: { a: "#E6E6EC", b: "#A9A9B6", word: "thinking" },
-  grey: { a: "#E6E6EC", b: "#A9A9B6", word: "needs more detail" },
-  green: { a: "#E4F4CC", b: "#A5D75B", word: "reassured" },
-  amber: { a: "#FFE6C8", b: "#FBA64C", word: "cautious" },
-  red: { a: "#F7D0C5", b: "#DA5532", word: "serious" },
+const ORB: Record<Mood, { img: string; word: string }> = {
+  neutral: { img: "purple", word: "ready" },
+  thinking: { img: "grey", word: "thinking" },
+  grey: { img: "grey", word: "needs more detail" },
+  green: { img: "green", word: "reassured" },
+  amber: { img: "amber", word: "cautious" },
+  red: { img: "red", word: "serious" },
 };
+// Judy's face (art from the Lovable design). Decorative unless a label is given.
 export function Orb({
   mood = "neutral",
   size = 120,
@@ -84,37 +85,51 @@ export function Orb({
   animate?: boolean;
 }) {
   const o = ORB[mood];
-  const mouth =
-    mood === "red" || mood === "amber"
-      ? "M38 66 Q50 60 62 66"
-      : mood === "thinking" || mood === "grey"
-        ? "M40 64 L60 64"
-        : "M36 60 Q50 72 64 60";
   return (
-    <div
-      role="img"
-      aria-label={label ?? `Judy, ${o.word}`}
-      className={cn("relative shrink-0", animate && "judy-breathe")}
+    <img
+      src={`/assets/judy/judy_${o.img}.png`}
+      alt={label ?? `Judy, ${o.word}`}
+      width={size}
+      height={size}
+      draggable={false}
+      className={cn("shrink-0 select-none object-contain", animate && "judy-breathe")}
       style={{ width: size, height: size }}
+    />
+  );
+}
+
+// Status pill: icon + words on a tinted background (never colour alone).
+const PILL: Record<Colour, string> = {
+  green: "bg-[#F0F7E5] text-[#326427] border-[#A5D75B]",
+  amber: "bg-[#FFF3E5] text-[#7A4708] border-[#FBA64C]",
+  red: "bg-[#FDEDE8] text-[#9A2E12] border-[#DA5532]",
+  grey: "bg-[#F0F0F6] text-[#4A4B5E] border-[#B7BCCB]",
+};
+const TINT: Record<Colour, string> = {
+  green: "bg-[#F0F7E5]",
+  amber: "bg-[#FFF3E5]",
+  red: "bg-[#FDEDE8]",
+  grey: "bg-[#F0F0F6]",
+};
+export function StatusPill({ colour, className }: { colour: Colour; className?: string }) {
+  const { Icon, word } = STATUS[colour];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-base font-bold",
+        PILL[colour],
+        className,
+      )}
     >
-      <div
-        className="absolute inset-0 rounded-full blur-xl"
-        style={{ background: o.b, opacity: 0.45 }}
-      />
-      <svg viewBox="0 0 100 100" className="relative h-full w-full" aria-hidden="true">
-        <defs>
-          <radialGradient id={`orb-${mood}`} cx="38%" cy="32%" r="75%">
-            <stop offset="0%" stopColor="#FFFFFF" />
-            <stop offset="35%" stopColor={o.a} />
-            <stop offset="100%" stopColor={o.b} />
-          </radialGradient>
-        </defs>
-        <circle cx="50" cy="50" r="46" fill={`url(#orb-${mood})`} />
-        <ellipse cx="38" cy="46" rx="4" ry={mood === "thinking" ? 2 : 5} fill="#1D2433" />
-        <ellipse cx="62" cy="46" rx="4" ry={mood === "thinking" ? 2 : 5} fill="#1D2433" />
-        <path d={mouth} stroke="#1D2433" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-      </svg>
-    </div>
+      <span
+        aria-hidden="true"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full"
+        style={{ background: HEX[colour] }}
+      >
+        <Icon size={12} strokeWidth={3} color={colour === "red" ? "#FFFFFF" : "#1D2433"} />
+      </span>
+      {word}
+    </span>
   );
 }
 
@@ -256,18 +271,21 @@ export function StatusCard({
   return (
     <section
       aria-label={`Result: ${card.title}`}
-      className="overflow-hidden rounded-3xl bg-white shadow-sm"
-      style={{ borderTop: `8px solid ${HEX[c]}` }}
+      className="overflow-hidden rounded-3xl border-2 bg-white shadow-sm"
+      style={{ borderColor: HEX[c] }}
     >
-      <div className="flex items-start gap-3 p-5 pb-3">
-        <StatusCircle colour={c} size={52} />
+      <div className={cn("flex items-center gap-3 px-4 py-4", TINT[c])}>
+        <Orb mood={c} size={60} animate={false} label={`Judy, ${STATUS[c].word}`} />
         <div className="min-w-0 flex-1">
-          <h3 className="text-xl font-bold leading-snug text-judy-ink">{card.title}</h3>
+          <h3 className="flex items-start gap-2 text-xl font-bold leading-snug text-judy-ink">
+            <StatusCircle colour={c} size={26} />
+            <span>{card.title}</span>
+          </h3>
           <p className="text-lg text-[#4A4F5E]">{card.summary}</p>
         </div>
         <ReadAloud text={cardSpeech(card)} />
       </div>
-      <div className="space-y-4 px-5 pb-5">
+      <div className="space-y-4 px-5 pb-5 pt-4">
         {card.explanation && <p className="text-lg text-judy-ink">{card.explanation}</p>}
         {card.signs.length > 0 && (
           <div>
@@ -336,7 +354,7 @@ export function AppFrame({
       <main
         id="main"
         className={cn(
-          "mx-auto flex min-h-dvh w-full max-w-md flex-col",
+          "mx-auto flex min-h-dvh w-full max-w-md flex-col pt-[env(safe-area-inset-top)]",
           tabs && "pb-24",
           className,
         )}
@@ -357,7 +375,7 @@ export function TabBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E3DCE8] bg-white/95 backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E3DCE8] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     >
       <ul className="mx-auto flex max-w-md">
         {TABS.map(({ to, label, Icon }) => (

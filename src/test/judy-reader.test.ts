@@ -160,3 +160,19 @@ describe("screenshots go to the Reader and Checker only (mocked HTTP)", () => {
     expect(JSON.stringify(events)).not.toContain(IMAGE.data);
   });
 });
+
+describe("several screenshots", () => {
+  it("attaches every screenshot to the Reader, in order, before the text", async () => {
+    const second = { media_type: "image/jpeg" as const, data: "QUJD".repeat(40) };
+    const { client, requests } = clientWith([json(READER)]);
+    await createClaudeAgents(client, async () => MEMORIES, { images: [IMAGE, second] }).reader(
+      "(screenshot)",
+      DEFAULT_CONFIGS.reader,
+      stageContext(),
+    );
+    const content = requests[0]!["messages"][0].content as Request[];
+    expect(content.map((c: Request) => c.type)).toEqual(["image", "image", "text"]);
+    expect(content[1].source.data).toBe(second.data);
+    expect(content[2].text).toContain('"screenshot_count":2');
+  });
+});

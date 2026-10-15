@@ -2,7 +2,7 @@ import type { ImageInput } from "@/lib/pipeline/judy";
 
 // Shrinks a screenshot in the browser to at most 1600px (JPEG) before it is sent.
 // The image is only ever held in memory; it is never stored.
-export async function shrinkScreenshot(file: File): Promise<ImageInput> {
+export async function shrinkScreenshot(file: File, maxSide = 1600): Promise<ImageInput> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -11,7 +11,7 @@ export async function shrinkScreenshot(file: File): Promise<ImageInput> {
       el.onerror = () => reject(new Error("That file is not a picture."));
       el.src = url;
     });
-    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
     canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));

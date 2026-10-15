@@ -111,7 +111,7 @@ function deps(
 }
 const share = (text = TEXT) => ({ action: "share" as const, text });
 
-describe("intake: Judy's three questions", () => {
+describe("intake: Judy's two questions", () => {
   it("greets, asks the questions one by one, saves answers, then invites a share", async () => {
     const { db, store } = memoryStore();
     const d = deps(store);
@@ -120,17 +120,16 @@ describe("intake: Judy's three questions", () => {
     expect(db.messages[0]!.kind).toBe("text");
     expect((r.message.body as any).id).toBe("how_met");
     expect((r.message.body as any).options).toHaveLength(3);
-    for (const a of ["Online – a game, app or social media", "2 weeks", "No, that's all"])
+    for (const a of ["Online – a game, app or social media", "2 weeks"])
       r = await judyTurn(d, { threadId: T, runId: runId(), input: { action: "answer", text: a } });
     expect(r.status).toBe("text");
     expect(db.thread.answers).toEqual({
       how_met: "Online – a game, app or social media",
       how_long: "2 weeks",
-      anything_else: "No, that's all",
     });
     expect(db.thread.pending).toBeNull();
     expect(d.makeAgents).not.toHaveBeenCalled(); // no AI needed for intake
-    expect(INTAKE_QUESTIONS).toHaveLength(3);
+    expect(INTAKE_QUESTIONS).toHaveLength(2);
   });
 });
 
@@ -250,7 +249,7 @@ describe("a check", () => {
     });
     expect(JSON.stringify(db)).not.toContain("A".repeat(200)); // screenshot never stored
     expect(d.makeAgents).toHaveBeenLastCalledWith(
-      expect.objectContaining({ image, canAskQuestion: true, followUps: [] }),
+      expect.objectContaining({ images: [image], canAskQuestion: true, followUps: [] }),
     );
     // Answer → re-run (Analyzer may ask once more), then a third answer forces a verdict.
     r = await judyTurn(d, {

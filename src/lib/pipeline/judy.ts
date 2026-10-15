@@ -39,6 +39,8 @@ export type ImageInput = { media_type: (typeof IMAGE_MEDIA_TYPES)[number]; data:
 // ~4.5 MB image once decoded (Claude accepts up to 5 MB per image). The app
 // shrinks screenshots before sending, so real ones are far smaller.
 export const MAX_IMAGE_BASE64 = 6_000_000;
+// Up to 4 screenshots per check (the app shrinks them so the request stays small).
+export const MAX_IMAGES = 4;
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
