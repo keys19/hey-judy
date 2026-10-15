@@ -62,26 +62,26 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --radius: 1rem;
+  --background: oklch(0.962 0.003 286);
+  --foreground: oklch(0.255 0.028 265);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --primary: oklch(0.524 0.125 318);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.02 318);
+  --secondary-foreground: oklch(0.42 0.12 318);
   --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
+  --muted-foreground: oklch(0.47 0.02 270);
   --accent: oklch(0.968 0.007 247.896);
   --accent-foreground: oklch(0.208 0.042 265.755);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: oklch(0.929 0.013 255.508);
   --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --ring: oklch(0.524 0.125 318);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -140,5 +140,35 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 1.125rem;
+    line-height: 1.5;
   }
+  html.judy-larger { font-size: 112.5%; }
+}
+
+/* Hey Judy palette (PRD) */
+@theme inline {
+  --color-judy-canvas: #f3f3f5;
+  --color-judy-primary: #8e53a1;
+  --color-judy-lilac: #efe6f3;
+  --color-judy-ink: #1d2433;
+  --color-judy-green: #a5d75b;
+  --color-judy-amber: #fba64c;
+  --color-judy-red: #da5532;
+  --color-judy-grey: #8e8e99;
+}
+
+@keyframes judy-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+@keyframes judy-dot {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
+}
+.judy-breathe { animation: judy-breathe 3.2s ease-in-out infinite; }
+.judy-dot { animation: judy-dot 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .judy-breathe, .judy-dot { animation: none; }
 }

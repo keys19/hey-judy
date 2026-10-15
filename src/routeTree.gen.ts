@@ -10,33 +10,141 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CarerRouteImport } from './routes/carer'
+import { Route as DevRouteImport } from './routes/dev'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as RulesRouteImport } from './routes/rules'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as TrustedRouteImport } from './routes/trusted'
+import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as ChatThreadIdRouteImport } from './routes/chat.$threadId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CarerRoute = CarerRouteImport.update({
+  id: '/carer',
+  path: '/carer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevRoute = DevRouteImport.update({
+  id: '/dev',
+  path: '/dev',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RulesRoute = RulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrustedRoute = TrustedRouteImport.update({
+  id: '/trusted',
+  path: '/trusted',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatThreadIdRoute = ChatThreadIdRouteImport.update({
+  id: '/chat/$threadId',
+  path: '/chat/$threadId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/carer': typeof CarerRoute
+  '/dev': typeof DevRoute
+  '/onboarding': typeof OnboardingRoute
+  '/rules': typeof RulesRoute
+  '/settings': typeof SettingsRoute
+  '/trusted': typeof TrustedRoute
+  '/welcome': typeof WelcomeRoute
+  '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/carer': typeof CarerRoute
+  '/dev': typeof DevRoute
+  '/onboarding': typeof OnboardingRoute
+  '/rules': typeof RulesRoute
+  '/settings': typeof SettingsRoute
+  '/trusted': typeof TrustedRoute
+  '/welcome': typeof WelcomeRoute
+  '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/carer': typeof CarerRoute
+  '/dev': typeof DevRoute
+  '/onboarding': typeof OnboardingRoute
+  '/rules': typeof RulesRoute
+  '/settings': typeof SettingsRoute
+  '/trusted': typeof TrustedRoute
+  '/welcome': typeof WelcomeRoute
+  '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/carer'
+    | '/dev'
+    | '/onboarding'
+    | '/rules'
+    | '/settings'
+    | '/trusted'
+    | '/welcome'
+    | '/chat/$threadId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/carer'
+    | '/dev'
+    | '/onboarding'
+    | '/rules'
+    | '/settings'
+    | '/trusted'
+    | '/welcome'
+    | '/chat/$threadId'
+  id:
+    | '__root__'
+    | '/'
+    | '/carer'
+    | '/dev'
+    | '/onboarding'
+    | '/rules'
+    | '/settings'
+    | '/trusted'
+    | '/welcome'
+    | '/chat/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CarerRoute: typeof CarerRoute
+  DevRoute: typeof DevRoute
+  OnboardingRoute: typeof OnboardingRoute
+  RulesRoute: typeof RulesRoute
+  SettingsRoute: typeof SettingsRoute
+  TrustedRoute: typeof TrustedRoute
+  WelcomeRoute: typeof WelcomeRoute
+  ChatThreadIdRoute: typeof ChatThreadIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +156,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/carer': {
+      id: '/carer'
+      path: '/carer'
+      fullPath: '/carer'
+      preLoaderRoute: typeof CarerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev': {
+      id: '/dev'
+      path: '/dev'
+      fullPath: '/dev'
+      preLoaderRoute: typeof DevRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rules': {
+      id: '/rules'
+      path: '/rules'
+      fullPath: '/rules'
+      preLoaderRoute: typeof RulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trusted': {
+      id: '/trusted'
+      path: '/trusted'
+      fullPath: '/trusted'
+      preLoaderRoute: typeof TrustedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat/$threadId': {
+      id: '/chat/$threadId'
+      path: '/chat/$threadId'
+      fullPath: '/chat/$threadId'
+      preLoaderRoute: typeof ChatThreadIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CarerRoute: CarerRoute,
+  DevRoute: DevRoute,
+  OnboardingRoute: OnboardingRoute,
+  RulesRoute: RulesRoute,
+  SettingsRoute: SettingsRoute,
+  TrustedRoute: TrustedRoute,
+  WelcomeRoute: WelcomeRoute,
+  ChatThreadIdRoute: ChatThreadIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
