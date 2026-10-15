@@ -10,6 +10,7 @@ import { composeSystem, type AgentConfig } from "./defaults";
 import { createGetMemoriesTool } from "../memory-tools";
 import type { AgentDrivers, StageContext } from "./contracts";
 import type { z } from "zod";
+import { createWebSearchTool, WEB_RESEARCH_GUIDANCE, type WebResearch } from "./web-search";
 import {
   redactReaderOutput,
   redactDeep,
@@ -60,6 +61,21 @@ export function createClaudeAgents(
       ? [options.image]
       : [];
   const image = images[0];
+  const names = options.namesToHide ?? [];
+  // The person's answers to Judy's follow-up questions, with names removed.
+  const followUps = (options.followUps ?? []).map(({ question, answer }) => ({
+    question: redactText(question, names),
+    answer: redactText(answer, names),
+  }));
+  // Web research the Analyzer did, passed on so the Checker can review it.
+  const analyzerResearch: WebResearch[] = [];
+  const researchSystem = (cfg: AgentConfig) =>
+    composeSystem(cfg) + "\n\n# Web research\n" + WEB_RESEARCH_GUIDANCE;
+  const imageBlocks = () =>
+    images.map((im) => ({
+      type: "image" as const,
+      source: { type: "base64" as const, media_type: im.media_type, data: im.data },
+    }));
   async function structured(
     schema: z.ZodType,
     cfg: AgentConfig,
@@ -76,13 +92,7 @@ export function createClaudeAgents(
     });
     const content =
       withImage && image
-        ? [
-            ...images.map((im) => ({
-              type: "image" as const,
-              source: { type: "base64" as const, media_type: im.media_type, data: im.data },
-            })),
-            { type: "text" as const, text: untrustedPayload(data) },
-          ]
+        ? [...imageBlocks(), { type: "text" as const, text: untrustedPayload(data) }]
         : untrustedPayload(data);
     const response = await client.messages.create(
       {
@@ -151,6 +161,9 @@ export function createClaudeAgents(
           retrieved = true;
         },
       );
+      const webSearch = createWebSearchTool(client, cfg, ctx, names, (result) =>
+        analyzerResearch.push(result),
+      );
       ctx.log("model_request", {
         model: cfg.model,
         mode: "beta.messages.toolRunner",
@@ -163,8 +176,8 @@ export function createClaudeAgents(
           max_tokens: MAX_TOKENS,
           max_iterations: MAX_TOOL_ITERATIONS,
           output_config: { format: zodOutputFormat(AnalysisOutputSchema) },
-          system: composeSystem(cfg),
-          tools: [tool],
+          system: researchSystem(cfg),
+          tools: [tool, webSearch],
           messages: [
             {
               role: "user",
@@ -174,7 +187,8 @@ export function createClaudeAgents(
                 reader_output: reader,
                 friendship: options.friendship ?? null,
                 can_ask_question: options.canAskQuestion === true,
-                follow_up_answers: options.followUps ?? [],
+                follow_up_answers: followUps,
+                current_date_utc: new Date().toISOString().slice(0, 10),
                 reviewer_feedback: feedback ?? null,
               }),
             },
@@ -201,10 +215,19 @@ export function createClaudeAgents(
         });
         for (const block of message.content)
           if (block.type === "tool_use") {
-            ctx.log("tool_call", { id: block.id, tool: block.name, input: block.input });
-            if (block.name !== tool.name) throw new Error("Analyzer requested an unknown tool.");
-            const args = tool.parse(block.input);
-            ctx.log("tool_arguments_validated", { id: block.id, tool: block.name, input: args });
+            ctx.log("tool_call", {
+              id: block.id,
+              tool: block.name,
+              input: redactDeep(block.input, names, new Set()),
+            });
+            const calledTool = [tool, webSearch].find((t) => t.name === block.name);
+            if (!calledTool) throw new Error("Analyzer requested an unknown tool.");
+            const args = calledTool.parse(block.input);
+            ctx.log("tool_arguments_validated", {
+              id: block.id,
+              tool: block.name,
+              input: redactDeep(args, names, new Set()),
+            });
           }
         if (stopReason === "end_turn") finalText = responseText(message);
         if (stopReason === "tool_use" && turns < MAX_TOOL_ITERATIONS) {
@@ -232,28 +255,79 @@ export function createClaudeAgents(
       );
       return { output, memories };
     },
-    checker: async (input, reader, analysis, memories, cfg, ctx) =>
-      redactDeep(
-        await structured(
-          CheckerOutputSchema,
-          cfg,
-          {
-            original_input: input,
-            reader_output: reader,
-            analysis_output: analysis,
-            retrieved_memories: memories,
-            friendship: options.friendship ?? null,
-            // After a follow-up answer the screenshot is gone: the facts were
-            // already checked against it, and the person's answers explain changes.
-            input_kind: image ? "screenshot" : options.followUps?.length ? "facts_only" : "text",
-            follow_up_answers: options.followUps ?? [],
-          },
-          ctx,
-          true, // the Checker independently re-reads the screenshot
-        ),
-        options.namesToHide ?? [],
-        AGENT_OUTPUT_KEEP,
-      ),
+    checker: async (input, reader, analysis, memories, cfg, ctx) => {
+      // The Checker re-reads every screenshot and may do its own web search.
+      const webSearch = createWebSearchTool(client, cfg, ctx, names);
+      const payload = untrustedPayload({
+        original_input: input,
+        reader_output: reader,
+        analysis_output: analysis,
+        retrieved_memories: memories,
+        friendship: options.friendship ?? null,
+        follow_up_answers: followUps,
+        analyzer_web_research: analyzerResearch,
+        current_date_utc: new Date().toISOString().slice(0, 10),
+        // After a follow-up answer the screenshot is gone: the facts were
+        // already checked against it, and the person's answers explain changes.
+        input_kind: image ? "screenshot" : followUps.length ? "facts_only" : "text",
+        ...(images.length ? { screenshot_count: images.length } : {}),
+      });
+      ctx.log("model_request", {
+        model: cfg.model,
+        mode: "beta.messages.toolRunner",
+        max_iterations: MAX_TOOL_ITERATIONS,
+        structured_output: true,
+        screenshot_attached: !!image,
+        screenshots: images.length,
+      });
+      const runner = client.beta.messages.toolRunner(
+        {
+          model: cfg.model,
+          max_tokens: MAX_TOKENS,
+          max_iterations: MAX_TOOL_ITERATIONS,
+          output_config: { format: zodOutputFormat(CheckerOutputSchema) },
+          system: researchSystem(cfg),
+          tools: [webSearch],
+          messages: [
+            {
+              role: "user",
+              content: image
+                ? [...imageBlocks(), { type: "text" as const, text: payload }]
+                : payload,
+            },
+          ],
+        },
+        { signal: ctx.signal },
+      );
+      let finalText = "";
+      let stopReason: string | null = null;
+      for await (const response of runner) {
+        ctx.signal.throwIfAborted();
+        stopReason = response.stop_reason;
+        ctx.usage.input += response.usage.input_tokens;
+        ctx.usage.output += response.usage.output_tokens;
+        ctx.log("model_response", {
+          id: response.id,
+          model: response.model,
+          stop_reason: stopReason,
+          usage: response.usage,
+        });
+        for (const block of response.content) {
+          if (block.type !== "tool_use") continue;
+          if (block.name !== webSearch.name) throw new Error("Checker requested an unknown tool.");
+          const args = webSearch.parse(block.input);
+          ctx.log("tool_call", {
+            id: block.id,
+            tool: block.name,
+            input: redactDeep(args, names, new Set()),
+          });
+        }
+        if (stopReason === "end_turn") finalText = responseText(response);
+      }
+      if (stopReason !== "end_turn")
+        throw new Error("Checker did not finish normally (iteration limit or interrupted output).");
+      return redactDeep(JSON.parse(finalText), names, AGENT_OUTPUT_KEEP);
+    },
   };
 }
 export function createLiveAgents(
