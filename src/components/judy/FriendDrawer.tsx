@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { createThread, errorText, latestCheckByThread, type Thread } from "@/lib/judy-db";
-import type { Colour } from "@/lib/pipeline/judy-turn";
+import {
+  createThread,
+  errorText,
+  latestCheckByThread,
+  type LastCheck,
+  type Thread,
+} from "@/lib/judy-db";
 import { PersonRowContent } from "./PersonRow";
 import { PrimaryButton, inputCls } from "./ui";
 import { useJudy } from "./session";
@@ -24,14 +29,16 @@ export function FriendDrawer({
 }) {
   const { userId } = useJudy();
   const navigate = useNavigate();
-  const [checks, setChecks] = useState<Record<string, { colour: Colour; created_at: string }>>({});
+  const [checks, setChecks] = useState<Record<string, LastCheck>>({});
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setAdding(false);
+    setQuery("");
     latestCheckByThread()
       .then(setChecks)
       .catch(() => setChecks({}));
@@ -53,25 +60,50 @@ export function FriendDrawer({
         <SheetDescription className="text-base text-[#5E6272]">
           Who do you want to ask Judy about?
         </SheetDescription>
+        {threads.length > 3 && (
+          <label className="relative mt-4 block">
+            <span className="sr-only">Search for a person</span>
+            <Search
+              size={20}
+              aria-hidden="true"
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#6B6F7E]"
+            />
+            <input
+              type="search"
+              className={inputCls + " rounded-full pl-11"}
+              placeholder="Search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+        )}
         <ul className="mt-5 space-y-3">
-          {threads.map((t) => {
-            const selected = t.id === currentId;
-            return (
-              <li key={t.id}>
-                <button
-                  type="button"
-                  onClick={() => go(t.id)}
-                  aria-current={selected ? "true" : undefined}
-                  className={
-                    "flex min-h-16 w-full items-center gap-3 rounded-2xl px-3 py-3 text-left shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-judy-primary/30 " +
-                    (selected ? "border-2 border-judy-primary bg-judy-lilac" : "bg-white")
-                  }
-                >
-                  <PersonRowContent nickname={t.nickname} last={checks[t.id]} selected={selected} />
-                </button>
-              </li>
-            );
-          })}
+          {threads
+            .filter(
+              (t) => !query.trim() || t.nickname.toLowerCase().includes(query.trim().toLowerCase()),
+            )
+            .map((t) => {
+              const selected = t.id === currentId;
+              return (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => go(t.id)}
+                    aria-current={selected ? "true" : undefined}
+                    className={
+                      "flex min-h-16 w-full items-center gap-3 rounded-2xl px-3 py-3 text-left shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-judy-primary/30 " +
+                      (selected ? "border-2 border-judy-primary bg-judy-lilac" : "bg-white")
+                    }
+                  >
+                    <PersonRowContent
+                      nickname={t.nickname}
+                      last={checks[t.id]}
+                      selected={selected}
+                    />
+                  </button>
+                </li>
+              );
+            })}
         </ul>
         {adding ? (
           <form

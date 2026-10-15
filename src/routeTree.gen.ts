@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CarerRouteImport } from './routes/carer'
 import { Route as DevRouteImport } from './routes/dev'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TrustedRouteImport } from './routes/trusted'
@@ -34,9 +36,19 @@ const DevRoute = DevRouteImport.update({
   path: '/dev',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RulesRoute = RulesRouteImport.update({
@@ -69,7 +81,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/carer': typeof CarerRoute
   '/dev': typeof DevRoute
+  '/help': typeof HelpRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
   '/trusted': typeof TrustedRoute
@@ -80,7 +94,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/carer': typeof CarerRoute
   '/dev': typeof DevRoute
+  '/help': typeof HelpRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
   '/trusted': typeof TrustedRoute
@@ -92,7 +108,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/carer': typeof CarerRoute
   '/dev': typeof DevRoute
+  '/help': typeof HelpRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
   '/trusted': typeof TrustedRoute
@@ -105,7 +123,9 @@ export interface FileRouteTypes {
     | '/'
     | '/carer'
     | '/dev'
+    | '/help'
     | '/onboarding'
+    | '/privacy'
     | '/rules'
     | '/settings'
     | '/trusted'
@@ -116,7 +136,9 @@ export interface FileRouteTypes {
     | '/'
     | '/carer'
     | '/dev'
+    | '/help'
     | '/onboarding'
+    | '/privacy'
     | '/rules'
     | '/settings'
     | '/trusted'
@@ -127,7 +149,9 @@ export interface FileRouteTypes {
     | '/'
     | '/carer'
     | '/dev'
+    | '/help'
     | '/onboarding'
+    | '/privacy'
     | '/rules'
     | '/settings'
     | '/trusted'
@@ -139,7 +163,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CarerRoute: typeof CarerRoute
   DevRoute: typeof DevRoute
+  HelpRoute: typeof HelpRoute
   OnboardingRoute: typeof OnboardingRoute
+  PrivacyRoute: typeof PrivacyRoute
   RulesRoute: typeof RulesRoute
   SettingsRoute: typeof SettingsRoute
   TrustedRoute: typeof TrustedRoute
@@ -170,11 +196,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding': {
       id: '/onboarding'
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rules': {
@@ -219,7 +259,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CarerRoute: CarerRoute,
   DevRoute: DevRoute,
+  HelpRoute: HelpRoute,
   OnboardingRoute: OnboardingRoute,
+  PrivacyRoute: PrivacyRoute,
   RulesRoute: RulesRoute,
   SettingsRoute: SettingsRoute,
   TrustedRoute: TrustedRoute,

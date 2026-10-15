@@ -243,7 +243,10 @@ export function createClaudeAgents(
             analysis_output: analysis,
             retrieved_memories: memories,
             friendship: options.friendship ?? null,
-            input_kind: image ? "screenshot" : "text",
+            // After a follow-up answer the screenshot is gone: the facts were
+            // already checked against it, and the person's answers explain changes.
+            input_kind: image ? "screenshot" : options.followUps?.length ? "facts_only" : "text",
+            follow_up_answers: options.followUps ?? [],
           },
           ctx,
           true, // the Checker independently re-reads the screenshot

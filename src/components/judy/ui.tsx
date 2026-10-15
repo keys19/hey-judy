@@ -1,5 +1,5 @@
 // Hey Judy design kit: orb, status colours, bubbles, cards, buttons, layout.
-import { Link } from "@tanstack/react-router";
+import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import {
   AlertOctagon,
@@ -23,6 +23,9 @@ import {
   ShieldCheck,
   UserX,
   Volume2,
+  Users,
+  LifeBuoy,
+  ChevronLeft,
   Camera,
   Gift,
   Frown,
@@ -367,8 +370,9 @@ export function AppFrame({
 }
 
 const TABS = [
-  { to: "/", label: "My Chats", Icon: MessageCircle },
-  { to: "/rules", label: "My Rules", Icon: ShieldCheck },
+  { to: "/", label: "Your chats", Icon: MessageCircle },
+  { to: "/trusted", label: "Supporters", Icon: Users },
+  { to: "/help", label: "Get help", Icon: LifeBuoy },
   { to: "/settings", label: "Settings", Icon: Settings },
 ] as const;
 export function TabBar() {
@@ -383,7 +387,7 @@ export function TabBar() {
             <Link
               to={to}
               activeOptions={{ exact: true }}
-              className="flex min-h-16 flex-col items-center justify-center gap-1 text-base font-bold text-[#5E6272] data-[status=active]:text-judy-primary"
+              className="mx-1 my-1.5 flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl text-sm font-bold text-[#5E6272] data-[status=active]:bg-judy-lilac data-[status=active]:text-judy-primary"
             >
               <Icon size={24} aria-hidden="true" />
               {label}
@@ -395,13 +399,51 @@ export function TabBar() {
   );
 }
 
-export function PageHeader({ title, back }: { title: string; back?: ReactNode }) {
+// Back to where you came from, or home if there's nowhere to go back to.
+export function BackButton({ label = "Back" }: { label?: string }) {
+  const router = useRouter();
+  const canGoBack = useCanGoBack();
   return (
-    <header className="flex items-center gap-2 px-4 pb-2 pt-6">
-      {back}
-      <h1 className="text-2xl font-bold text-judy-ink">{title}</h1>
+    <button
+      type="button"
+      onClick={() => (canGoBack ? router.history.back() : void router.navigate({ to: "/" }))}
+      className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white px-4 text-base font-bold text-judy-primary shadow-sm hover:bg-judy-lilac"
+    >
+      <ChevronLeft size={20} aria-hidden="true" /> {label}
+    </button>
+  );
+}
+
+export function PageHeader({
+  title,
+  back = false,
+  right,
+}: {
+  title: string;
+  back?: boolean;
+  right?: ReactNode;
+}) {
+  return (
+    <header className="px-5 pb-2 pt-4">
+      {(back || right) && (
+        <div className="mb-3 flex items-center justify-between">
+          {back ? <BackButton /> : <span />}
+          {right}
+        </div>
+      )}
+      <h1 className="text-3xl font-bold text-judy-ink">{title}</h1>
     </header>
   );
+}
+
+// "Annie's boundaries" (or "Your boundaries" if we don't know their name).
+export function displayName(n: string | null | undefined) {
+  const t = (n ?? "").trim();
+  return t ? t[0]!.toUpperCase() + t.slice(1) : "";
+}
+export function boundariesTitle(n: string | null | undefined) {
+  const d = displayName(n);
+  return d ? `${d}'s boundaries` : "Your boundaries";
 }
 
 // Plain toggle row (large target)

@@ -46,7 +46,7 @@ export function RulePicker({
 
   useEffect(() => {
     load()
-      .catch((e) => toast.error("Could not load your rules: " + errorText(e)))
+      .catch((e) => toast.error("Could not load your boundaries: " + errorText(e)))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -68,7 +68,7 @@ export function RulePicker({
       .single();
     if (error) {
       setRules(prev);
-      toast.error("Could not save that rule: " + error.message);
+      toast.error("Could not save that boundary: " + error.message);
       return;
     }
     setRules((rs) => rs.map((r) => (r.code === code ? (data as Rule) : r)));
@@ -86,59 +86,36 @@ export function RulePicker({
     const { error } = await db.from("rules").delete().eq("id", r.id);
     if (error) {
       setRules(prev);
-      toast.error("Could not remove that rule: " + error.message);
+      toast.error("Could not remove that boundary: " + error.message);
     }
   };
 
-  if (loading) return <p className="px-1 text-lg text-[#5E6272]">Loading your rules…</p>;
+  if (loading) return <p className="px-1 text-lg text-[#5E6272]">Loading your boundaries…</p>;
 
   return (
-    <div className="space-y-3">
-      <ul className="space-y-3">
-        {templates.map((t) => {
-          const on = isOn(t.code);
-          return (
-            <li key={t.code}>
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={on}
-                onClick={() => void setRule(t.code, t.text, !on)}
-                className={
-                  "flex min-h-14 w-full items-center gap-4 rounded-2xl border-2 px-4 py-3 text-left text-lg transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-judy-primary/30 " +
-                  (on ? "border-judy-primary bg-white" : "border-transparent bg-white/70")
-                }
+    <div className="space-y-8">
+      <section aria-labelledby="own-h" className="space-y-3">
+        <h2 id="own-h" className="text-xl font-bold">
+          My own boundaries
+        </h2>
+        {ownRules.length > 0 && (
+          <ul className="space-y-3">
+            {ownRules.map((r) => (
+              <li
+                key={r.id}
+                className="flex min-h-14 items-center gap-4 rounded-2xl border-2 border-judy-primary bg-white py-2 pl-4 pr-2"
               >
                 <span
                   aria-hidden="true"
-                  className={
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 " +
-                    (on
-                      ? "border-judy-primary bg-judy-primary text-white"
-                      : "border-[#9A9AA6] bg-white")
-                  }
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-judy-primary text-white"
                 >
-                  {on && <Check size={20} strokeWidth={3} />}
+                  <Check size={20} strokeWidth={3} />
                 </span>
-                <span className="text-judy-ink">{t.text}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-
-      <div className="rounded-2xl bg-white p-4">
-        <h3 className="text-lg font-bold">My own rules</h3>
-        {ownRules.length > 0 && (
-          <ul className="mt-2 space-y-2">
-            {ownRules.map((r) => (
-              <li key={r.id} className="flex items-start gap-3 rounded-xl bg-judy-canvas px-3 py-2">
-                <Check size={20} className="mt-1 shrink-0 text-judy-primary" aria-hidden="true" />
-                <p className="flex-1 text-lg">{r.text}</p>
+                <p className="flex-1 text-lg text-judy-ink">{r.text}</p>
                 <button
                   type="button"
-                  aria-label={`Remove rule: ${r.text}`}
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#5E6272] hover:bg-white"
+                  aria-label={`Remove boundary: ${r.text}`}
+                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-[#5E6272] hover:bg-judy-canvas"
                   onClick={() => void removeOwn(r)}
                 >
                   <Trash2 size={22} />
@@ -148,7 +125,7 @@ export function RulePicker({
           </ul>
         )}
         <form
-          className="mt-3 flex gap-2"
+          className="rounded-2xl bg-white p-4 shadow-sm"
           onSubmit={(e) => {
             e.preventDefault();
             const text = custom.trim();
@@ -157,27 +134,68 @@ export function RulePicker({
             void addOwn(text.slice(0, 200));
           }}
         >
-          <label className="sr-only" htmlFor="custom-rule">
-            Write a new rule of your own
+          <label className="mb-2 block text-lg font-bold" htmlFor="custom-rule">
+            Add a boundary of your own
           </label>
-          <input
-            id="custom-rule"
-            className={inputCls}
-            placeholder="For example: I don't lend my phone"
-            value={custom}
-            maxLength={200}
-            onChange={(e) => setCustom(e.target.value)}
-          />
-          <button
-            type="submit"
-            aria-label="Add rule"
-            disabled={!custom.trim()}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-full bg-judy-primary text-white disabled:opacity-40"
-          >
-            <Plus size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              id="custom-rule"
+              className={inputCls}
+              placeholder="For example: I don't lend my phone"
+              value={custom}
+              maxLength={200}
+              onChange={(e) => setCustom(e.target.value)}
+            />
+            <button
+              type="submit"
+              aria-label="Add boundary"
+              disabled={!custom.trim()}
+              className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full bg-judy-primary text-white disabled:opacity-40"
+            >
+              <Plus size={24} />
+            </button>
+          </div>
         </form>
-      </div>
+      </section>
+
+      <section aria-labelledby="sugg-h" className="space-y-3">
+        <h2 id="sugg-h" className="text-xl font-bold">
+          Suggested boundaries
+        </h2>
+        <p className="text-base text-[#5E6272]">Tap to turn one on or off.</p>
+        <ul className="space-y-3">
+          {templates.map((t) => {
+            const on = isOn(t.code);
+            return (
+              <li key={t.code}>
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  onClick={() => void setRule(t.code, t.text, !on)}
+                  className={
+                    "flex min-h-14 w-full items-center gap-4 rounded-2xl border-2 px-4 py-3 text-left text-lg transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-judy-primary/30 " +
+                    (on ? "border-judy-primary bg-white" : "border-transparent bg-white/70")
+                  }
+                >
+                  <span
+                    aria-hidden="true"
+                    className={
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 " +
+                      (on
+                        ? "border-judy-primary bg-judy-primary text-white"
+                        : "border-[#9A9AA6] bg-white")
+                    }
+                  >
+                    {on && <Check size={20} strokeWidth={3} />}
+                  </span>
+                  <span className="text-judy-ink">{t.text}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </div>
   );
 }

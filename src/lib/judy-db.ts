@@ -131,18 +131,34 @@ export async function createThread(userId: string, nickname: string): Promise<Th
   return data as Thread;
 }
 
-export async function latestCheckByThread(): Promise<
-  Record<string, { colour: Colour; created_at: string }>
-> {
+export type LastCheck = { colour: Colour; created_at: string; summary: string };
+
+// One short line about the last check, e.g. "Asked to borrow £20 (Wed 8 Oct)".
+function oneLine(reply: Partial<ReplyCard> | null | undefined): string {
+  const signs = reply?.signs ?? [];
+  const pick = signs.find((x) => x.sign !== "rule") ?? signs[0];
+  if (pick?.label) return pick.label.replace(/^Goes against: /, "Against: ");
+  const e = (reply?.explanation ?? "").trim();
+  const first = e.match(/^[^.!?]+[.!?]?/)?.[0] ?? e;
+  return first.length > 70 ? first.slice(0, 67) + "…" : first;
+}
+
+export async function latestCheckByThread(): Promise<Record<string, LastCheck>> {
   const { data, error } = await db
     .from("checks")
-    .select("thread_id, colour, created_at")
+    .select("thread_id, colour, created_at, reply")
     .order("created_at", { ascending: false })
     .limit(200);
   if (error) throw error;
-  const out: Record<string, { colour: Colour; created_at: string }> = {};
-  for (const r of (data ?? []) as { thread_id: string; colour: Colour; created_at: string }[])
-    if (!out[r.thread_id]) out[r.thread_id] = { colour: r.colour, created_at: r.created_at };
+  const out: Record<string, LastCheck> = {};
+  for (const r of (data ?? []) as {
+    thread_id: string;
+    colour: Colour;
+    created_at: string;
+    reply: Partial<ReplyCard> | null;
+  }[])
+    if (!out[r.thread_id])
+      out[r.thread_id] = { colour: r.colour, created_at: r.created_at, summary: oneLine(r.reply) };
   return out;
 }
 

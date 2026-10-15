@@ -149,10 +149,10 @@
 
 /* Hey Judy palette (PRD) */
 @theme inline {
-  --color-judy-canvas: #f3f3f5;
-  --color-judy-primary: #8e53a1;
-  --color-judy-lilac: #efe6f3;
-  --color-judy-ink: #1d2433;
+  --color-judy-canvas: var(--j-canvas);
+  --color-judy-primary: var(--j-primary);
+  --color-judy-lilac: var(--j-lilac);
+  --color-judy-ink: var(--j-ink);
   --color-judy-green: #a5d75b;
   --color-judy-amber: #fba64c;
   --color-judy-red: #da5532;
@@ -172,3 +172,54 @@
 @media (prefers-reduced-motion: reduce) {
   .judy-breathe, .judy-dot { animation: none; }
 }
+
+/* Hey Judy light / dark tokens */
+:root {
+  --j-canvas: #f3f3f5;
+  --j-primary: #8e53a1;
+  --j-lilac: #efe6f3;
+  --j-ink: #1d2433;
+}
+html.dark {
+  color-scheme: dark;
+  --j-canvas: #17141c;
+  --j-primary: #c79ad8;
+  --j-lilac: #3a2f45;
+  --j-ink: #f1ecf4;
+}
+/* Dark mode: map the fixed light colours used in the screens. */
+html.dark .bg-white { background-color: #26212d; }
+html.dark .bg-white\/95 { background-color: rgb(38 33 45 / 0.95); }
+html.dark .bg-white\/70 { background-color: rgb(38 33 45 / 0.7); }
+html.dark .border-white { border-color: #26212d; }
+html.dark .bg-judy-primary.text-white,
+html.dark .bg-judy-primary .text-white { color: #1d1923; }
+html.dark .text-\[\#5E6272\],
+html.dark .text-\[\#6B6F7E\],
+html.dark .text-\[\#8C8F9C\] { color: #b9b0c4; }
+html.dark .text-\[\#3F4454\],
+html.dark .text-\[\#4A4F5E\],
+html.dark .text-\[\#3A4458\],
+html.dark .text-\[\#1D2433\] { color: #ddd5e5; }
+html.dark .border-\[\#E3DCE8\],
+html.dark .border-\[\#D9CFE1\],
+html.dark .ring-\[\#E3DCE8\] { border-color: #463c50; --tw-ring-color: #463c50; }
+html.dark .border-\[\#9A9AA6\] { border-color: #8a8196; }
+html.dark .bg-\[\#C9C9D2\],
+html.dark .bg-\[\#DCD5E2\],
+html.dark .bg-\[\#D9D3DE\],
+html.dark .bg-\[\#E3DCE8\] { background-color: #4a4155; }
+html.dark .bg-\[\#F7F6F9\],
+html.dark .bg-\[\#F4F3F6\],
+html.dark .bg-\[\#ECEDF1\] { background-color: #1f1b25; }
+/* status tints */
+html.dark .bg-\[\#F0F7E5\] { background-color: #24311c; }
+html.dark .bg-\[\#FFF3E5\] { background-color: #3a2a18; }
+html.dark .bg-\[\#FDEDE8\] { background-color: #3d1e1a; }
+html.dark .bg-\[\#F0F0F6\] { background-color: #2c2c36; }
+html.dark .text-\[\#326427\] { color: #c3e597; }
+html.dark .text-\[\#7A4708\] { color: #ffcf96; }
+html.dark .text-\[\#9A2E12\] { color: #ffb3a1; }
+html.dark .text-\[\#4A4B5E\] { color: #d2d3df; }
+html.dark .text-judy-red { color: #ff9c85; }
+html.dark ::placeholder { color: #9d94a8; }

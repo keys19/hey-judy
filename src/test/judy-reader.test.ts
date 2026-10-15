@@ -176,3 +176,15 @@ describe("several screenshots", () => {
     expect(content[2].text).toContain('"screenshot_count":2');
   });
 });
+
+describe("Checker after a follow-up answer", () => {
+  it("sees the person's answers and knows the screenshot is gone", async () => {
+    const { client, requests } = clientWith([json(APPROVED)]);
+    await createClaudeAgents(client, async () => MEMORIES, {
+      followUps: [{ question: "Did they want money?", answer: "No, just sharing food" }],
+    }).checker("(screenshot)", READER, ANALYSIS, MEMORIES, DEFAULT_CONFIGS.checker, stageContext());
+    const body = String(requests[0]!["messages"][0].content);
+    expect(body).toContain('"input_kind":"facts_only"');
+    expect(body).toContain("No, just sharing food");
+  });
+});

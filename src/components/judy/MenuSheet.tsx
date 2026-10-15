@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
-  Accessibility,
   ChevronRight,
   History,
   LifeBuoy,
@@ -18,13 +17,15 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { db, errorText } from "@/lib/judy-db";
 import type { Colour, ReplyCard } from "@/lib/pipeline/judy-turn";
 import { BottomSheet } from "./BottomSheet";
-import { PrimaryButton, SecondaryButton, StatusPill } from "./ui";
+import { PrimaryButton, SecondaryButton, StatusPill, boundariesTitle } from "./ui";
+import { useJudy } from "./session";
 
-type Sub = null | "history" | "privacy" | "help";
+type Sub = null | "history";
 
 // The app menu (from the Lovable design). In a chat it also offers
 // "Relationship history" for the person you're asking about.
 export function MenuButton({ thread }: { thread?: { id: string; nickname: string } }) {
+  const { profile } = useJudy();
   const [open, setOpen] = useState(false);
   const [sub, setSub] = useState<Sub>(null);
   const openSub = (s: Sub) => {
@@ -53,13 +54,7 @@ export function MenuButton({ thread }: { thread?: { id: string; nickname: string
             <Item
               to="/rules"
               icon={<ShieldCheck />}
-              label="Your rules"
-              onGo={() => setOpen(false)}
-            />
-            <Item
-              to="/settings"
-              icon={<Accessibility />}
-              label="Accessibility"
+              label={boundariesTitle(profile.first_name)}
               onGo={() => setOpen(false)}
             />
             {thread && (
@@ -72,11 +67,16 @@ export function MenuButton({ thread }: { thread?: { id: string; nickname: string
             <Item
               to="/trusted"
               icon={<Users />}
-              label="Trusted person"
+              label="Trusted people"
               onGo={() => setOpen(false)}
             />
-            <Item icon={<Lock />} label="Privacy and data" onClick={() => openSub("privacy")} />
-            <Item icon={<LifeBuoy />} label="Get help" onClick={() => openSub("help")} />
+            <Item
+              to="/privacy"
+              icon={<Lock />}
+              label="Privacy and data"
+              onGo={() => setOpen(false)}
+            />
+            <Item to="/help" icon={<LifeBuoy />} label="Get help" onGo={() => setOpen(false)} />
             <Item to="/settings" icon={<Settings />} label="Settings" onGo={() => setOpen(false)} />
           </nav>
         </SheetContent>
@@ -84,36 +84,6 @@ export function MenuButton({ thread }: { thread?: { id: string; nickname: string
       {thread && (
         <HistorySheet open={sub === "history"} onClose={() => setSub(null)} thread={thread} />
       )}
-      <BottomSheet
-        open={sub === "privacy"}
-        onOpenChange={(v) => !v && setSub(null)}
-        title="Privacy and data"
-      >
-        <div className="space-y-3 text-lg">
-          <p>
-            <strong>Never saved:</strong> your screenshots. They are only used for the check, then
-            thrown away.
-          </p>
-          <p>
-            <strong>Hidden before the AI reads it:</strong> names of your trusted people and the
-            person you're asking about, phone numbers, emails, links, addresses and codes.
-          </p>
-          <p>
-            <strong>Saved for you:</strong> the nicknames you choose, your answers to Judy's
-            questions, Judy's results, and pasted text with names removed. This lets Judy notice
-            patterns over time.
-          </p>
-          <p>
-            <strong>Your trusted person</strong> only ever sees a colour, “Chat 1” and the time, and
-            only if you choose to share.
-          </p>
-          <p>You can delete a chat any time in Relationship history.</p>
-          <PrimaryButton arrow={false} onClick={() => setSub(null)}>
-            OK
-          </PrimaryButton>
-        </div>
-      </BottomSheet>
-      <HelpSheet open={sub === "help"} onClose={() => setSub(null)} />
     </>
   );
 }
@@ -125,7 +95,7 @@ function Item({
   onClick,
   onGo,
 }: {
-  to?: "/" | "/rules" | "/settings" | "/trusted";
+  to?: "/" | "/rules" | "/settings" | "/trusted" | "/privacy" | "/help";
   icon: ReactNode;
   label: string;
   onClick?: () => void;
@@ -150,48 +120,6 @@ function Item({
     <button type="button" className={cls} onClick={onClick}>
       {inner}
     </button>
-  );
-}
-
-export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const tel = "font-bold text-judy-primary underline";
-  return (
-    <BottomSheet open={open} onOpenChange={(v) => !v && onClose()} title="Get help">
-      <ul className="space-y-3 text-lg">
-        <li>
-          In danger now? Call{" "}
-          <a className={tel} href="tel:999">
-            999
-          </a>
-        </li>
-        <li>
-          Samaritans, free, day or night:{" "}
-          <a className={tel} href="tel:116123">
-            116 123
-          </a>
-        </li>
-        <li>
-          Citizens Advice:{" "}
-          <a className={tel} href="tel:08082231133">
-            0808 223 1133
-          </a>
-        </li>
-        <li>
-          Report a scam to Action Fraud:{" "}
-          <a className={tel} href="tel:03001232040">
-            0300 123 2040
-          </a>
-        </li>
-        <li>
-          <Link to="/trusted" className={tel} onClick={onClose}>
-            Talk to your trusted person
-          </Link>
-        </li>
-      </ul>
-      <PrimaryButton arrow={false} className="mt-6" onClick={onClose}>
-        OK
-      </PrimaryButton>
-    </BottomSheet>
   );
 }
 

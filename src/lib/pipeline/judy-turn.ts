@@ -104,7 +104,9 @@ const GREETING =
   "Hi! I can help you check messages from this person. You decide what to do. First, two quick questions.";
 const INTAKE_DONE =
   "Thank you. Now show me the conversation. Add screenshots, paste the messages or tell me what happened. You can do more than one.";
-const ERROR_TEXT = "Something went wrong. Your screenshot was not saved. Try again.";
+const ERROR_TEXT = "Something went wrong with this check. Please try again.";
+const ERROR_TEXT_SCREENSHOT =
+  "Something went wrong with this check. Your screenshots were not saved. Please try again.";
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -516,7 +518,10 @@ export async function judyTurn(
       "grey – check did not finish: " + (result.error ?? result.status),
       "judge",
     );
-    const message: JudyMessage = { kind: "error", body: { text: ERROR_TEXT } };
+    const message: JudyMessage = {
+      kind: "error",
+      body: { text: images.length ? ERROR_TEXT_SCREENSHOT : ERROR_TEXT },
+    };
     await store.addMessage(args.threadId, "judy", "error", message.body);
     await store.updateThread(args.threadId, { pending: null, last_used_at: now.toISOString() });
     await log("done", "Done.", "user");

@@ -11,6 +11,7 @@ import {
   inputCls,
 } from "@/components/judy/ui";
 import { RulePicker } from "@/components/judy/RulePicker";
+import { supabase } from "@/integrations/supabase/client";
 import { errorText, updateProfile } from "@/lib/judy-db";
 
 export const Route = createFileRoute("/onboarding")({
@@ -30,6 +31,7 @@ function Onboarding() {
   const [adult, setAdult] = useState(!!profile.confirmed_adult_at);
   const [terms, setTerms] = useState(!!profile.accepted_terms_at);
   const [busy, setBusy] = useState(false);
+  const [under18, setUnder18] = useState(false);
 
   const save = async (patch: Parameters<typeof updateProfile>[1]) => {
     try {
@@ -55,7 +57,52 @@ function Onboarding() {
         ))}
       </div>
 
-      {step === 0 && (
+      {under18 && (
+        <div className="flex flex-1 flex-col">
+          <div className="flex justify-center">
+            <Orb size={100} />
+          </div>
+          <h1 className="mt-6 text-3xl font-bold">Judy is for adults</h1>
+          <p className="mt-3 text-lg text-[#3F4454]">
+            Hey Judy is for people aged 18 or over. If something online worries you, talk to a
+            parent, carer or teacher you trust.
+          </p>
+          <div className="mt-5 space-y-3 rounded-3xl bg-white p-5 shadow-sm">
+            <p className="text-lg">
+              <strong>Childline</strong> is free and private, for anyone under 19.
+            </p>
+            <a
+              href="tel:08001111"
+              className="flex min-h-14 items-center justify-center rounded-full bg-judy-primary text-lg font-bold text-white"
+            >
+              Call Childline: 0800 1111
+            </a>
+            <a
+              href="https://www.childline.org.uk"
+              target="_blank"
+              rel="noreferrer"
+              className="block text-center text-lg font-bold text-judy-primary underline"
+            >
+              childline.org.uk
+            </a>
+          </div>
+          <div className="mt-auto space-y-3 pt-8">
+            <SecondaryButton onClick={() => setUnder18(false)}>Go back</SecondaryButton>
+            <button
+              type="button"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                void navigate({ to: "/welcome" });
+              }}
+              className="mx-auto block min-h-11 text-base text-[#5E6272] underline"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!under18 && step === 0 && (
         <form
           className="flex flex-1 flex-col"
           onSubmit={async (e) => {
@@ -94,6 +141,13 @@ function Onboarding() {
           </label>
           <div className="mt-5 space-y-3">
             <ToggleRow label="I am 18 or older" checked={adult} onChange={setAdult} />
+            <button
+              type="button"
+              onClick={() => setUnder18(true)}
+              className="mx-auto block min-h-11 px-2 text-base font-bold text-judy-primary underline"
+            >
+              I am under 18
+            </button>
             <ToggleRow
               label="I understand Judy is an AI helper"
               hint="Judy can make mistakes and cannot promise someone is trustworthy. I decide what to do."
@@ -115,7 +169,7 @@ function Onboarding() {
         </form>
       )}
 
-      {step === 1 && (
+      {!under18 && step === 1 && (
         <div className="flex flex-1 flex-col">
           <h1 className="text-3xl font-bold">How should Judy look and sound?</h1>
           <p className="mt-2 text-lg text-[#3F4454]">You can change these any time in Settings.</p>
@@ -150,12 +204,13 @@ function Onboarding() {
         </div>
       )}
 
-      {step === 2 && (
+      {!under18 && step === 2 && (
         <div className="flex flex-1 flex-col">
-          <h1 className="text-3xl font-bold">Your rules</h1>
+          <h1 className="text-3xl font-bold">Your boundaries</h1>
           <p className="mt-2 text-lg text-[#3F4454]">
-            Pick the rules you want to keep. Judy will tell you if a message goes against one of
-            them. We ticked some good ones to start.
+            Boundaries are your own lines that others shouldn't push you to cross. Judy will tell
+            you if a message goes against one. We ticked some good ones to start, and you can add
+            your own.
           </p>
           <div className="mt-6">
             <RulePicker userId={userId} seedDefaults />

@@ -54,7 +54,7 @@ type Busy = null | { checking: boolean; progress: string };
 type Shot = { id: string; img: ImageInput; url: string };
 type LocalUser = { text: string | null; urls: string[] };
 
-const ERROR_TEXT = "Something went wrong. Your screenshot was not saved. Try again.";
+const ERROR_TEXT = "Something went wrong with this check. Nothing was saved. Please try again.";
 
 function ChatPage() {
   const { threadId } = Route.useParams();
